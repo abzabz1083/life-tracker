@@ -1,6 +1,6 @@
-# [Project name]
+# Life Tracker
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A personal mobile app for daily tasks, finances, recurring bills, learning modules, meals, and gym progress.
 
 ## Run & Operate
 
@@ -30,11 +30,11 @@ _Populate as you build — non-obvious choices a reader couldn't infer from the 
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Life Tracker keeps daily tasks, income and expenses, recurring bills and affordability planning, study modules, meal macros, and workout records in one mobile app. Voice notes can be transcribed and categorized; currency conversions, food lookups, photo-based equipment suggestions, and AI reviews use external services.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Keep the interface clean and professional with monochrome icons and no emojis or multicolored icon treatments.
 
 ## Gotchas
 

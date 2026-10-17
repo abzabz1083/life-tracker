@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: life
+    description: Voice transcription, workout identification, and life-tracker insights
 paths:
   /healthz:
     get:
@@ -24,6 +26,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /life/insights:
+    post:
+      operationId: createLifeInsight
+      tags: [life]
+      summary: Generate a concise personal progress review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifeInsightInput"
+      responses:
+        "200":
+          description: Generated review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifeInsight"
+  /life/transcribe:
+    post:
+      operationId: transcribeLifeVoiceNote
+      tags: [life]
+      summary: Transcribe a recorded voice note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifeTranscriptionInput"
+      responses:
+        "200":
+          description: Transcription result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifeTranscription"
+  /life/identify-exercise:
+    post:
+      operationId: identifyExerciseMachine
+      tags: [life]
+      summary: Identify a gym machine from a photo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExercisePhotoInput"
+      responses:
+        "200":
+          description: Machine identification suggestion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExerciseSuggestion"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +89,55 @@ components:
           type: string
       required:
         - status
+    LifeInsightInput:
+      type: object
+      properties:
+        snapshot:
+          type: string
+          maxLength: 10000
+      required:
+        - snapshot
+    LifeInsight:
+      type: object
+      properties:
+        summary:
+          type: string
+      required:
+        - summary
+    LifeTranscriptionInput:
+      type: object
+      properties:
+        audioBase64:
+          type: string
+        format:
+          type: string
+          enum: [m4a, mp3, wav, webm, mp4, flac, ogg]
+      required:
+        - audioBase64
+        - format
+    LifeTranscription:
+      type: object
+      properties:
+        transcript:
+          type: string
+      required:
+        - transcript
+    ExercisePhotoInput:
+      type: object
+      properties:
+        imageBase64:
+          type: string
+        mimeType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+      required:
+        - imageBase64
+        - mimeType
+    ExerciseSuggestion:
+      type: object
+      properties:
+        suggestion:
+          type: string
+      required:
+        - suggestion
 

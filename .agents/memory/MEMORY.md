@@ -1,0 +1,1 @@
+- [Frankfurter currency coverage](frankfurter-currency-coverage.md) — The legacy host redirects to frozen v1; check supported pairs in current v2 before offering currencies.
