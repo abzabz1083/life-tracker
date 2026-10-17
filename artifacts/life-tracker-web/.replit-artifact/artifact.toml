@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Life Tracker"
+description = "A browser-based personal life tracker for daily tasks, budgets, bills, learning modules, meals, macros, workouts, and AI-guided reviews. Personal records stay in the browser; AI services power voice transcription, equipment-photo suggestions, and progress feedback."
+version = "1.0.0"
+id = "artifacts/life-tracker-web"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21789
+
+[services.development]
+run = "pnpm --filter @workspace/life-tracker-web run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/life-tracker-web", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/life-tracker-web/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21789"
+BASE_PATH = "/"

@@ -26,7 +26,9 @@ import type {
   LifeInsight,
   LifeInsightInput,
   LifeTranscription,
-  LifeTranscriptionInput
+  LifeTranscriptionInput,
+  TelegramTestInput,
+  TelegramTestResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -396,5 +398,93 @@ export const useIdentifyExerciseMachine = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getIdentifyExerciseMachineMutationOptions(options));
+    }
+
+export const getSendLifeTelegramTestUrl = () => {
+
+
+
+
+  return `/api/life/telegram-test`
+}
+
+/**
+ * @summary Send a one-time Telegram connection test
+ */
+export const sendLifeTelegramTest = async (telegramTestInput: TelegramTestInput, options?: Parameters<typeof customFetch>[1]): Promise<TelegramTestResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TelegramTestResult>(getSendLifeTelegramTestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(telegramTestInput)
+  }
+);}
+
+
+
+
+
+export const getSendLifeTelegramTestMutationKey = () => ['sendLifeTelegramTest'] as const;
+
+export const getSendLifeTelegramTestMutationOptions = <TError = ErrorType<TelegramTestResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendLifeTelegramTest>>, TError,SendLifeTelegramTestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendLifeTelegramTest>>, TError,SendLifeTelegramTestMutationVariables, TContext> => {
+
+const mutationKey = getSendLifeTelegramTestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendLifeTelegramTest>>, SendLifeTelegramTestMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  sendLifeTelegramTest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendLifeTelegramTestMutationResult = NonNullable<Awaited<ReturnType<typeof sendLifeTelegramTest>>>
+    export type SendLifeTelegramTestMutationBody = BodyType<TelegramTestInput>
+    export type SendLifeTelegramTestMutationError = ErrorType<TelegramTestResult>
+    export type SendLifeTelegramTestMutationVariables = {data: BodyType<TelegramTestInput>}
+
+    /**
+ * @summary Send a one-time Telegram connection test
+ */
+export const useSendLifeTelegramTest = <TError = ErrorType<TelegramTestResult>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendLifeTelegramTest>>, TError,SendLifeTelegramTestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendLifeTelegramTest>>,
+        TError,
+        SendLifeTelegramTestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendLifeTelegramTestMutationOptions(options));
     }
 

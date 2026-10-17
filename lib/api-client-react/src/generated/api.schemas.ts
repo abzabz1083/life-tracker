@@ -58,3 +58,21 @@ export interface ExerciseSuggestion {
   suggestion: string;
 }
 
+export interface TelegramTestInput {
+  /**
+     * @minLength 10
+     * @maxLength 256
+     */
+  token: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  chatId: string;
+}
+
+export interface TelegramTestResult {
+  sent: boolean;
+  error?: string;
+}
+

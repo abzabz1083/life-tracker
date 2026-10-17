@@ -2,6 +2,7 @@ import { Router, type IRouter, type RequestHandler } from "express";
 import {
   CreateLifeInsightBody,
   IdentifyExerciseMachineBody,
+  SendLifeTelegramTestBody,
   TranscribeLifeVoiceNoteBody,
 } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
@@ -121,6 +122,48 @@ router.post("/life/identify-exercise", aiRateLimit, async (req, res) => {
   } catch (error) {
     req.log.error({ err: error }, "Unable to identify exercise equipment");
     res.status(502).json({ error: "The photo could not be identified. Please try again." });
+  }
+});
+
+router.post("/life/telegram-test", aiRateLimit, async (req, res) => {
+  const parsed = SendLifeTelegramTestBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ sent: false, error: "Enter a valid bot token and chat ID." });
+    return;
+  }
+
+  const { token, chatId } = parsed.data;
+  try {
+    const response = await fetch(
+      `https://api.telegram.org/bot${encodeURIComponent(token)}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: "Life Tracker connection test",
+        }),
+        signal: AbortSignal.timeout(12_000),
+      },
+    );
+    const result = (await response.json()) as {
+      ok?: boolean;
+      description?: string;
+    };
+    if (!response.ok || !result.ok) {
+      res.status(502).json({
+        sent: false,
+        error: result.description?.slice(0, 200) || "Telegram could not send the test message.",
+      });
+      return;
+    }
+    res.json({ sent: true });
+  } catch {
+    req.log.warn("Telegram connection test failed");
+    res.status(502).json({
+      sent: false,
+      error: "Telegram could not be reached. Please try again.",
+    });
   }
 });
 

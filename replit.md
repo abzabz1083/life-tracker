@@ -1,6 +1,6 @@
 # Life Tracker
 
-A personal mobile app for daily tasks, finances, recurring bills, learning modules, meals, and gym progress.
+A browser-based personal app for daily tasks, finances, recurring bills, learning modules, meals, and gym progress.
 
 ## Run & Operate
 
@@ -30,7 +30,9 @@ _Populate as you build — non-obvious choices a reader couldn't infer from the 
 
 ## Product
 
-Life Tracker keeps daily tasks, income and expenses, recurring bills and affordability planning, study modules, meal macros, and workout records in one mobile app. Voice notes can be transcribed and categorized; currency conversions, food lookups, photo-based equipment suggestions, and AI reviews use external services.
+Life Tracker keeps daily tasks, income and expenses, recurring bills and affordability planning, study modules, meal macros, and workout records in one browser app. Records and non-secret settings are stored in browser storage. Voice notes can be transcribed and categorized; currency conversions, food lookups, photo-based equipment suggestions, AI reviews, and Telegram test messages use external services.
+
+The browser app is the primary version. The earlier Expo mobile artifact remains available as an inactive backup; mobile-local records are not automatically imported into the browser.
 
 ## User preferences
 

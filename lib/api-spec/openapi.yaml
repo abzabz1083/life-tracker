@@ -80,6 +80,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExerciseSuggestion"
+  /life/telegram-test:
+    post:
+      operationId: sendLifeTelegramTest
+      tags: [life]
+      summary: Send a one-time Telegram connection test
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramTestInput"
+      responses:
+        "200":
+          description: Telegram test message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramTestResult"
+        "502":
+          description: Telegram rejected the test message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramTestResult"
 components:
   schemas:
     HealthStatus:
@@ -140,4 +164,27 @@ components:
           type: string
       required:
         - suggestion
+    TelegramTestInput:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 10
+          maxLength: 256
+        chatId:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+        - token
+        - chatId
+    TelegramTestResult:
+      type: object
+      properties:
+        sent:
+          type: boolean
+        error:
+          type: string
+      required:
+        - sent
 

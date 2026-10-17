@@ -59,3 +59,24 @@ export const IdentifyExerciseMachineResponse = zod.object({
 })
 
 
+/**
+ * @summary Send a one-time Telegram connection test
+ */
+export const sendLifeTelegramTestBodyTokenMin = 10;
+export const sendLifeTelegramTestBodyTokenMax = 256;
+
+export const sendLifeTelegramTestBodyChatIdMax = 128;
+
+
+
+export const SendLifeTelegramTestBody = zod.object({
+  "token": zod.string().min(sendLifeTelegramTestBodyTokenMin).max(sendLifeTelegramTestBodyTokenMax),
+  "chatId": zod.string().min(1).max(sendLifeTelegramTestBodyChatIdMax)
+})
+
+export const SendLifeTelegramTestResponse = zod.object({
+  "sent": zod.boolean(),
+  "error": zod.string().optional()
+})
+
+

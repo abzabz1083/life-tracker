@@ -15,3 +15,5 @@ export * from './lifeInsightInput';
 export * from './lifeTranscription';
 export * from './lifeTranscriptionInput';
 export * from './lifeTranscriptionInputFormat';
+export * from './telegramTestInput';
+export * from './telegramTestResult';

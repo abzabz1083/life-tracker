@@ -1,6 +1,6 @@
 kind = "mobile"
 previewPath = "/life-tracker/"
-title = "Life Tracker"
+title = "Life Tracker (mobile backup)"
 description = "A personal mobile app for daily tasks, income and expense planning, recurring bills, voice notes, study modules, nutrition and macros, and progressive workout tracking with AI insights."
 version = "1.0.0"
 id = "artifacts/life-tracker"
