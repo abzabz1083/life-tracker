@@ -25,8 +25,18 @@ import type {
   HealthStatus,
   LifeInsight,
   LifeInsightInput,
+  LifeMealPlan,
+  LifeMealPlanInput,
+  LifeReminderSettings,
+  LifeReminderSettingsInput,
+  LifeReminderSnapshotInput,
+  LifeReminderSnapshotResult,
   LifeTranscription,
   LifeTranscriptionInput,
+  NutritionFood,
+  NutritionLabel,
+  NutritionLabelPhoto,
+  SearchLifeNutritionParams,
   TelegramTestInput,
   TelegramTestResult
 } from './api.schemas';
@@ -400,6 +410,593 @@ export const useIdentifyExerciseMachine = <TError = ErrorType<unknown>,
       return useMutation(getIdentifyExerciseMachineMutationOptions(options));
     }
 
+export const getReadLifeNutritionLabelUrl = () => {
+
+
+
+
+  return `/api/life/nutrition-label`
+}
+
+/**
+ * @summary Read nutrition values from a food package photo
+ */
+export const readLifeNutritionLabel = async (nutritionLabelPhoto: NutritionLabelPhoto, options?: Parameters<typeof customFetch>[1]): Promise<NutritionLabel> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<NutritionLabel>(getReadLifeNutritionLabelUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(nutritionLabelPhoto)
+  }
+);}
+
+
+
+
+
+export const getReadLifeNutritionLabelMutationKey = () => ['readLifeNutritionLabel'] as const;
+
+export const getReadLifeNutritionLabelMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof readLifeNutritionLabel>>, TError,ReadLifeNutritionLabelMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof readLifeNutritionLabel>>, TError,ReadLifeNutritionLabelMutationVariables, TContext> => {
+
+const mutationKey = getReadLifeNutritionLabelMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof readLifeNutritionLabel>>, ReadLifeNutritionLabelMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  readLifeNutritionLabel(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReadLifeNutritionLabelMutationResult = NonNullable<Awaited<ReturnType<typeof readLifeNutritionLabel>>>
+    export type ReadLifeNutritionLabelMutationBody = BodyType<NutritionLabelPhoto>
+    export type ReadLifeNutritionLabelMutationError = ErrorType<void>
+    export type ReadLifeNutritionLabelMutationVariables = {data: BodyType<NutritionLabelPhoto>}
+
+    /**
+ * @summary Read nutrition values from a food package photo
+ */
+export const useReadLifeNutritionLabel = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof readLifeNutritionLabel>>, TError,ReadLifeNutritionLabelMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof readLifeNutritionLabel>>,
+        TError,
+        ReadLifeNutritionLabelMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReadLifeNutritionLabelMutationOptions(options));
+    }
+
+export const getSearchLifeNutritionUrl = (params: SearchLifeNutritionParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/life/nutrition-search?${stringifiedParams}` : `/api/life/nutrition-search`
+}
+
+/**
+ * @summary Search USDA FoodData Central and Open Food Facts
+ */
+export const searchLifeNutrition = async (params: SearchLifeNutritionParams, options?: Parameters<typeof customFetch>[1]): Promise<NutritionFood[]> => {
+
+  return customFetch<NutritionFood[]>(getSearchLifeNutritionUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchLifeNutritionQueryKey = (params?: SearchLifeNutritionParams,) => {
+    return [
+    `/api/life/nutrition-search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchLifeNutritionQueryOptions = <TData = Awaited<ReturnType<typeof searchLifeNutrition>>, TError = ErrorType<void>>(params: SearchLifeNutritionParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchLifeNutrition>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchLifeNutritionQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchLifeNutrition>>> = ({ signal }) => searchLifeNutrition(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchLifeNutrition>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SearchLifeNutritionQueryResult = NonNullable<Awaited<ReturnType<typeof searchLifeNutrition>>>
+export type SearchLifeNutritionQueryError = ErrorType<void>
+
+
+/**
+ * @summary Search USDA FoodData Central and Open Food Facts
+ */
+
+export function useSearchLifeNutrition<TData = Awaited<ReturnType<typeof searchLifeNutrition>>, TError = ErrorType<void>>(
+ params: SearchLifeNutritionParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchLifeNutrition>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSearchLifeNutritionQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateLifeMealPlanUrl = () => {
+
+
+
+
+  return `/api/life/meal-plan`
+}
+
+/**
+ * @summary Suggest ingredient portions against today's remaining nutrition targets
+ */
+export const createLifeMealPlan = async (lifeMealPlanInput: LifeMealPlanInput, options?: Parameters<typeof customFetch>[1]): Promise<LifeMealPlan> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LifeMealPlan>(getCreateLifeMealPlanUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(lifeMealPlanInput)
+  }
+);}
+
+
+
+
+
+export const getCreateLifeMealPlanMutationKey = () => ['createLifeMealPlan'] as const;
+
+export const getCreateLifeMealPlanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLifeMealPlan>>, TError,CreateLifeMealPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLifeMealPlan>>, TError,CreateLifeMealPlanMutationVariables, TContext> => {
+
+const mutationKey = getCreateLifeMealPlanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLifeMealPlan>>, CreateLifeMealPlanMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLifeMealPlan(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLifeMealPlanMutationResult = NonNullable<Awaited<ReturnType<typeof createLifeMealPlan>>>
+    export type CreateLifeMealPlanMutationBody = BodyType<LifeMealPlanInput>
+    export type CreateLifeMealPlanMutationError = ErrorType<void>
+    export type CreateLifeMealPlanMutationVariables = {data: BodyType<LifeMealPlanInput>}
+
+    /**
+ * @summary Suggest ingredient portions against today's remaining nutrition targets
+ */
+export const useCreateLifeMealPlan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLifeMealPlan>>, TError,CreateLifeMealPlanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createLifeMealPlan>>,
+        TError,
+        CreateLifeMealPlanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateLifeMealPlanMutationOptions(options));
+    }
+
+export const getGetLifeReminderSettingsUrl = () => {
+
+
+
+
+  return `/api/life/reminders`
+}
+
+/**
+ * @summary Get the signed-in user's Telegram reminder settings
+ */
+export const getLifeReminderSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<LifeReminderSettings> => {
+
+  return customFetch<LifeReminderSettings>(getGetLifeReminderSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLifeReminderSettingsQueryKey = () => {
+    return [
+    `/api/life/reminders`
+    ] as const;
+    }
+
+
+export const getGetLifeReminderSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getLifeReminderSettings>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLifeReminderSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLifeReminderSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLifeReminderSettings>>> = ({ signal }) => getLifeReminderSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLifeReminderSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLifeReminderSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getLifeReminderSettings>>>
+export type GetLifeReminderSettingsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the signed-in user's Telegram reminder settings
+ */
+
+export function useGetLifeReminderSettings<TData = Awaited<ReturnType<typeof getLifeReminderSettings>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLifeReminderSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLifeReminderSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateLifeReminderSettingsUrl = () => {
+
+
+
+
+  return `/api/life/reminders`
+}
+
+/**
+ * @summary Save protected Telegram reminder settings
+ */
+export const updateLifeReminderSettings = async (lifeReminderSettingsInput: LifeReminderSettingsInput, options?: Parameters<typeof customFetch>[1]): Promise<LifeReminderSettings> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LifeReminderSettings>(getUpdateLifeReminderSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(lifeReminderSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateLifeReminderSettingsMutationKey = () => ['updateLifeReminderSettings'] as const;
+
+export const getUpdateLifeReminderSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLifeReminderSettings>>, TError,UpdateLifeReminderSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateLifeReminderSettings>>, TError,UpdateLifeReminderSettingsMutationVariables, TContext> => {
+
+const mutationKey = getUpdateLifeReminderSettingsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLifeReminderSettings>>, UpdateLifeReminderSettingsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateLifeReminderSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLifeReminderSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateLifeReminderSettings>>>
+    export type UpdateLifeReminderSettingsMutationBody = BodyType<LifeReminderSettingsInput>
+    export type UpdateLifeReminderSettingsMutationError = ErrorType<void>
+    export type UpdateLifeReminderSettingsMutationVariables = {data: BodyType<LifeReminderSettingsInput>}
+
+    /**
+ * @summary Save protected Telegram reminder settings
+ */
+export const useUpdateLifeReminderSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLifeReminderSettings>>, TError,UpdateLifeReminderSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateLifeReminderSettings>>,
+        TError,
+        UpdateLifeReminderSettingsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateLifeReminderSettingsMutationOptions(options));
+    }
+
+export const getDeleteLifeReminderSettingsUrl = () => {
+
+
+
+
+  return `/api/life/reminders`
+}
+
+/**
+ * @summary Delete the signed-in user's Telegram reminder configuration
+ */
+export const deleteLifeReminderSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteLifeReminderSettingsUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteLifeReminderSettingsMutationKey = () => ['deleteLifeReminderSettings'] as const;
+
+export const getDeleteLifeReminderSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLifeReminderSettings>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteLifeReminderSettings>>, TError,void, TContext> => {
+
+const mutationKey = getDeleteLifeReminderSettingsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteLifeReminderSettings>>, void> = () => {
+
+
+          return  deleteLifeReminderSettings(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteLifeReminderSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof deleteLifeReminderSettings>>>
+
+    export type DeleteLifeReminderSettingsMutationError = ErrorType<void>
+
+
+    /**
+ * @summary Delete the signed-in user's Telegram reminder configuration
+ */
+export const useDeleteLifeReminderSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLifeReminderSettings>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteLifeReminderSettings>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteLifeReminderSettingsMutationOptions(options));
+    }
+
+export const getSyncLifeReminderSnapshotUrl = () => {
+
+
+
+
+  return `/api/life/reminders/snapshot`
+}
+
+/**
+ * @summary Sync today's incomplete tasks and unfinished study modules for reminders
+ */
+export const syncLifeReminderSnapshot = async (lifeReminderSnapshotInput: LifeReminderSnapshotInput, options?: Parameters<typeof customFetch>[1]): Promise<LifeReminderSnapshotResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LifeReminderSnapshotResult>(getSyncLifeReminderSnapshotUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(lifeReminderSnapshotInput)
+  }
+);}
+
+
+
+
+
+export const getSyncLifeReminderSnapshotMutationKey = () => ['syncLifeReminderSnapshot'] as const;
+
+export const getSyncLifeReminderSnapshotMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncLifeReminderSnapshot>>, TError,SyncLifeReminderSnapshotMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncLifeReminderSnapshot>>, TError,SyncLifeReminderSnapshotMutationVariables, TContext> => {
+
+const mutationKey = getSyncLifeReminderSnapshotMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncLifeReminderSnapshot>>, SyncLifeReminderSnapshotMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  syncLifeReminderSnapshot(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncLifeReminderSnapshotMutationResult = NonNullable<Awaited<ReturnType<typeof syncLifeReminderSnapshot>>>
+    export type SyncLifeReminderSnapshotMutationBody = BodyType<LifeReminderSnapshotInput>
+    export type SyncLifeReminderSnapshotMutationError = ErrorType<void>
+    export type SyncLifeReminderSnapshotMutationVariables = {data: BodyType<LifeReminderSnapshotInput>}
+
+    /**
+ * @summary Sync today's incomplete tasks and unfinished study modules for reminders
+ */
+export const useSyncLifeReminderSnapshot = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncLifeReminderSnapshot>>, TError,SyncLifeReminderSnapshotMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncLifeReminderSnapshot>>,
+        TError,
+        SyncLifeReminderSnapshotMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSyncLifeReminderSnapshotMutationOptions(options));
+    }
+
 export const getSendLifeTelegramTestUrl = () => {
 
 
@@ -409,7 +1006,7 @@ export const getSendLifeTelegramTestUrl = () => {
 }
 
 /**
- * @summary Send a one-time Telegram connection test
+ * @summary Send a one-time Telegram test using the saved bot setup
  */
 export const sendLifeTelegramTest = async (telegramTestInput: TelegramTestInput, options?: Parameters<typeof customFetch>[1]): Promise<TelegramTestResult> => {
 
@@ -442,7 +1039,7 @@ return customFetch<TelegramTestResult>(getSendLifeTelegramTestUrl(),
 
 export const getSendLifeTelegramTestMutationKey = () => ['sendLifeTelegramTest'] as const;
 
-export const getSendLifeTelegramTestMutationOptions = <TError = ErrorType<TelegramTestResult>,
+export const getSendLifeTelegramTestMutationOptions = <TError = ErrorType<void | TelegramTestResult>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendLifeTelegramTest>>, TError,SendLifeTelegramTestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof sendLifeTelegramTest>>, TError,SendLifeTelegramTestMutationVariables, TContext> => {
 
@@ -471,13 +1068,13 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SendLifeTelegramTestMutationResult = NonNullable<Awaited<ReturnType<typeof sendLifeTelegramTest>>>
     export type SendLifeTelegramTestMutationBody = BodyType<TelegramTestInput>
-    export type SendLifeTelegramTestMutationError = ErrorType<TelegramTestResult>
+    export type SendLifeTelegramTestMutationError = ErrorType<void | TelegramTestResult>
     export type SendLifeTelegramTestMutationVariables = {data: BodyType<TelegramTestInput>}
 
     /**
- * @summary Send a one-time Telegram connection test
+ * @summary Send a one-time Telegram test using the saved bot setup
  */
-export const useSendLifeTelegramTest = <TError = ErrorType<TelegramTestResult>,
+export const useSendLifeTelegramTest = <TError = ErrorType<void | TelegramTestResult>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendLifeTelegramTest>>, TError,SendLifeTelegramTestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof sendLifeTelegramTest>>,

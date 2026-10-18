@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Link, Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
+import { publishableKeyFromHost } from '@clerk/react/internal';
+import { shadcn } from '@clerk/themes';
+import { Link, Redirect, Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import {
   Activity, ArrowDownLeft, ArrowUpRight, AudioLines, BookOpen, Check, CheckCircle2,
   ChevronRight, Clock3, Dumbbell, FileText, Heart, Home, LoaderCircle,
@@ -8,24 +11,41 @@ import {
 } from 'lucide-react';
 import {
   getHealthCheckQueryKey, useCreateLifeInsight, useHealthCheck,
-  useIdentifyExerciseMachine, useSendLifeTelegramTest, useTranscribeLifeVoiceNote,
+  useIdentifyExerciseMachine, useSendLifeTelegramTest, useSyncLifeReminderSnapshot, useTranscribeLifeVoiceNote,
 } from '@workspace/api-client-react';
+import { HealthDashboard } from '@/components/HealthDashboard';
+import { SettingsDashboard } from '@/components/SettingsDashboard';
+import { StudyDashboard } from '@/components/StudyDashboard';
+import {
+  createDefaultLifeData,
+  dateKey,
+  makeId,
+  normalizeLifeData,
+  type Bill,
+  type Currency,
+  type LifeData,
+  type Meal,
+  type MoneyEntry,
+  type Settings,
+  type StudyModule,
+  type Task,
+  type VoiceNote,
+  type WeeklyReview,
+  type WorkoutEntry,
+} from '@/lib/life-data';
 import './index.css';
+import './auth.css';
+import './weekly-review.css';
 
-type Currency = 'GBP' | 'USD' | 'AED' | 'EUR';
-type Task = { id:string; title:string; done:boolean; date:string };
-type MoneyEntry = { id:string; kind:'income'|'expense'; title:string; category:string; amount:number; currency:Currency; baseAmount:number; date:string };
-type Bill = { id:string; title:string; amount:number; currency:Currency; baseAmount:number; dueDay:number };
-type StudyModule = { id:string; category:string; title:string; moduleNumber:number; notes:string; createdAt:string };
-type Meal = { id:string; name:string; grams:number; calories:number; protein:number; carbs:number; fat:number; time:string; date:string; source:string };
-type WorkoutEntry = { id:string; exercise:string; weight:number; reps:number; sets:number; finishedAt:string; date:string; photoKey?:string };
-type VoiceNote = { id:string; text:string; createdAt:string };
-type Settings = { baseCurrency:Currency; monthlyIncomeTarget:number; monthlySpendingBudget:number; calorieTarget:number; proteinTarget:number; mealPrompt:string; workoutPrompt:string; telegramChatId:string };
-type LifeData = { tasks:Task[]; money:MoneyEntry[]; bills:Bill[]; modules:StudyModule[]; meals:Meal[]; workouts:WorkoutEntry[]; voiceNotes:VoiceNote[]; settings:Settings };
 const STORE='life-tracker-web-v1';
-const defaults:LifeData={tasks:[],money:[],bills:[],modules:[],meals:[],workouts:[],voiceNotes:[],settings:{baseCurrency:'GBP',monthlyIncomeTarget:0,monthlySpendingBudget:0,calorieTarget:2000,proteinTarget:120,mealPrompt:'13:00',workoutPrompt:'20:00',telegramChatId:''}};
-const makeId=()=>`${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
-const dateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const basePath=import.meta.env.BASE_URL.replace(/\/$/,'');
+const clerkPubKey=publishableKeyFromHost(window.location.hostname,import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+const clerkProxyUrl=import.meta.env.VITE_CLERK_PROXY_URL;
+const clerkAppearance={
+ theme:shadcn,cssLayerName:'clerk',options:{logoPlacement:'inside' as const,logoLinkUrl:basePath||'/',logoImageUrl:`${window.location.origin}${basePath}/logo.svg`},
+ variables:{colorPrimary:'#426456',colorForeground:'#27322e',colorMutedForeground:'#717a75',colorDanger:'#a83f3a',colorBackground:'#fbfaf6',colorInput:'#ffffff',colorInputForeground:'#27322e',colorNeutral:'#d9ddd7',fontFamily:'DM Sans, sans-serif',borderRadius:'0.75rem'},
+ elements:{rootBox:'w-full flex justify-center',cardBox:'bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-sm',card:'!shadow-none !border-0 !bg-transparent !rounded-none',footer:'!shadow-none !border-0 !bg-transparent !rounded-none',headerTitle:'text-2xl font-semibold text-slate-800',headerSubtitle:'text-sm text-slate-500',formFieldLabel:'text-sm font-medium text-slate-700',footerActionLink:'font-semibold text-emerald-800',footerActionText:'text-sm text-slate-500',formFieldInput:'rounded-xl border-slate-200 bg-stone-50',formButtonPrimary:'rounded-xl bg-emerald-800 hover:bg-emerald-900',socialButtonsBlockButton:'rounded-xl border-slate-200',dividerLine:'bg-slate-200',alertText:'text-sm',main:'gap-5'},
+};
 const monthKey=()=>dateKey().slice(0,7);
 const money=(n:number,c:Currency)=>new Intl.NumberFormat(undefined,{style:'currency',currency:c,maximumFractionDigits:2}).format(Number.isFinite(n)?n:0);
 const humanDate=()=>new Intl.DateTimeFormat(undefined,{weekday:'long',month:'long',day:'numeric'}).format(new Date());
@@ -33,8 +53,8 @@ const getRate=async(from:Currency,to:Currency)=>{if(from===to)return 1;const r=a
 const convert=async(amount:number,from:Currency,to:Currency)=>Math.round(amount*await getRate(from,to)*100)/100;
 const cls=(...items:(string|false|undefined)[])=>items.filter(Boolean).join(' ');
 function useLife(){
- const [data,setData]=useState<LifeData>(defaults); const [ready,setReady]=useState(false);
- useEffect(()=>{try{const stored=localStorage.getItem(STORE);if(stored){const parsed=JSON.parse(stored) as Partial<LifeData>;setData({...defaults,...parsed,settings:{...defaults.settings,...parsed.settings}})}}catch{}setReady(true)},[]);
+ const [data,setData]=useState<LifeData>(createDefaultLifeData); const [ready,setReady]=useState(false);
+ useEffect(()=>{try{const stored=localStorage.getItem(STORE);if(stored)setData(normalizeLifeData(JSON.parse(stored)))}catch{}setReady(true)},[]);
  useEffect(()=>{if(ready)localStorage.setItem(STORE,JSON.stringify(data))},[data,ready]);
  const update=<K extends keyof LifeData>(key:K,value:LifeData[K])=>setData(prev=>({...prev,[key]:value}));
  return {data,update,ready};
@@ -52,28 +72,31 @@ function Panel({children,className=''}:{children:ReactNode;className?:string}){r
 function PanelTitle({children,detail}:{children:ReactNode;detail?:ReactNode}){return <div className="panel-title"><h2>{children}</h2>{detail&&<span>{detail}</span>}</div>}
 function Empty({title,detail,icon:Icon=FileText}:{title:string;detail:string;icon?:typeof FileText}){return <div className="empty-state"><span className="empty-icon"><Icon size={19}/></span><strong>{title}</strong><p>{detail}</p></div>}
 function TopHeading({eyebrow,title,subtitle}:{eyebrow:string;title:string;subtitle:string}){return <header className="page-heading animate-in"><p className="eyebrow">{eyebrow}</p><h1 className="serif">{title}</h1><p className="subheading">{subtitle}</p></header>}
-const nav=[{href:'/',label:'Today',icon:Home},{href:'/money',label:'Money',icon:Wallet},{href:'/study',label:'Study',icon:BookOpen},{href:'/health',label:'Health',icon:Heart},{href:'/settings',label:'Settings',icon:Settings2}];
+const nav=[{href:'/user-portal',label:'Today',icon:Home},{href:'/money',label:'Money',icon:Wallet},{href:'/study',label:'Study',icon:BookOpen},{href:'/health',label:'Health',icon:Heart},{href:'/settings',label:'Settings',icon:Settings2}];
 function AppShell({children}:{children:ReactNode}){
  const [path]=useLocation(); const health=useHealthCheck({query:{queryKey:getHealthCheckQueryKey(),refetchInterval:60000}});
- return <div className="app-shell"><aside className="sidebar"><Link href="/" className="brand"><span className="brand-mark"><Check size={19}/></span><span>daybook<small>PERSONAL TRACKER</small></span></Link><div className="nav-label">YOUR SPACE</div><nav>{nav.map(item=><Link href={item.href} key={item.href} data-testid={`nav-${item.label.toLowerCase()}`} className={cls('nav-item',path===item.href&&'active')}><item.icon size={17}/><span>{item.label}</span>{path===item.href&&<span className="nav-dot"/>}</Link>)}</nav><div className="sidebar-bottom"><div className={cls('service-dot',health.isSuccess?'online':'offline')}/><div><strong>{health.isLoading?'Checking service':health.isError?'Service unavailable':'All systems ready'}</strong><small>Private to this browser</small></div></div></aside><main className="main-area"><div className="mobile-brand"><span className="brand-mark"><Check size={17}/></span>daybook</div><div className="content-wrap">{children}<footer className="footer-note"><span>YOUR LIFE, IN VIEW</span><span>Stored on this device</span></footer></div></main><nav className="mobile-nav">{nav.map(item=><Link href={item.href} key={item.href} data-testid={`mobile-nav-${item.label.toLowerCase()}`} className={cls(path===item.href&&'active')}><item.icon size={19}/><span>{item.label}</span></Link>)}</nav></div>
+ return <div className="app-shell"><aside className="sidebar"><Link href="/user-portal" className="brand"><span className="brand-mark"><Check size={19}/></span><span>daybook<small>PERSONAL TRACKER</small></span></Link><div className="nav-label">YOUR SPACE</div><nav>{nav.map(item=><Link href={item.href} key={item.href} data-testid={`nav-${item.label.toLowerCase()}`} className={cls('nav-item',path===item.href&&'active')}><item.icon size={17}/><span>{item.label}</span>{path===item.href&&<span className="nav-dot"/>}</Link>)}</nav><div className="sidebar-bottom"><div className={cls('service-dot',health.isSuccess?'online':'offline')}/><div><strong>{health.isLoading?'Checking service':health.isError?'Service unavailable':'All systems ready'}</strong><small>Private to this browser</small></div></div></aside><main className="main-area"><div className="mobile-brand"><span className="brand-mark"><Check size={17}/></span>daybook</div><div className="content-wrap">{children}<footer className="footer-note"><span>YOUR LIFE, IN VIEW</span><span>Stored on this device</span></footer></div></main><nav className="mobile-nav">{nav.map(item=><Link href={item.href} key={item.href} data-testid={`mobile-nav-${item.label.toLowerCase()}`} className={cls(path===item.href&&'active')}><item.icon size={19}/><span>{item.label}</span></Link>)}</nav></div>
 }
 function HomePage({data,update}:{data:LifeData;update:<K extends keyof LifeData>(key:K,value:LifeData[K])=>void}){
- const [task,setTask]=useState('');const [transcript,setTranscript]=useState('');const [voiceError,setVoiceError]=useState('');const [recording,setRecording]=useState(false);const [review,setReview]=useState('');const [reviewError,setReviewError]=useState('');
+ const [task,setTask]=useState('');const [transcript,setTranscript]=useState('');const [voiceError,setVoiceError]=useState('');const [recording,setRecording]=useState(false);const [reviewError,setReviewError]=useState('');
  const recorder=useRef<MediaRecorder|null>(null);const chunks=useRef<Blob[]>([]);
  const transcribe=useTranscribeLifeVoiceNote();const insight=useCreateLifeInsight();
  const dayTasks=data.tasks.filter(t=>t.date===dateKey());const todayMeals=data.meals.filter(m=>m.date===dateKey());const calories=todayMeals.reduce((s,m)=>s+m.calories,0);const thisMonth=data.money.filter(m=>m.date.startsWith(monthKey()));const spend=thisMonth.filter(m=>m.kind==='expense').reduce((s,m)=>s+m.baseAmount,0);const billTotal=data.bills.reduce((s,b)=>s+b.baseAmount,0);
+ const today=new Date();const isReviewSunday=today.getDay()===0;const weekEnd=dateKey(today);const weekStartDate=new Date(today.getFullYear(),today.getMonth(),today.getDate()-((today.getDay()+6)%7));const weekStart=dateKey(weekStartDate);const currentWeekReview=data.weeklyReviews.find(item=>item.weekEnd===weekEnd);const isInReviewWeek=(date:string)=>date>=weekStart&&date<=weekEnd;
+ const reviewTasks=data.tasks.filter(item=>isInReviewWeek(item.date));const reviewMoney=data.money.filter(item=>isInReviewWeek(item.date));const reviewIncome=reviewMoney.filter(item=>item.kind==='income').reduce((sum,item)=>sum+item.baseAmount,0);const reviewSpending=reviewMoney.filter(item=>item.kind==='expense').reduce((sum,item)=>sum+item.baseAmount,0);const reviewMeals=data.meals.filter(item=>isInReviewWeek(item.date));const reviewCalories=reviewMeals.reduce((sum,item)=>sum+item.calories,0);const reviewChecks=data.dayChecks.filter(item=>isInReviewWeek(item.date));const reviewWorkouts=data.workouts.filter(item=>isInReviewWeek(item.date));const reviewNotes=data.voiceNotes.filter(item=>dateKey(new Date(item.createdAt))>=weekStart&&dateKey(new Date(item.createdAt))<=weekEnd);const modulesAddedThisWeek=data.modules.filter(item=>{const created=dateKey(new Date(item.createdAt));return isInReviewWeek(created)}).length;
+ const weekRangeLabel=`${new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric'}).format(weekStartDate)} – ${new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric'}).format(today)}`;
  const addTask=()=>{if(!task.trim())return;update('tasks',[{id:makeId(),title:task.trim(),done:false,date:dateKey()},...data.tasks]);setTask('')};
  const toggle=(id:string)=>update('tasks',data.tasks.map(t=>t.id===id?{...t,done:!t.done}:t));
  const record=async()=>{setVoiceError('');if(recording){recorder.current?.stop();setRecording(false);return}try{if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)throw new Error('Voice recording is not supported in this browser.');const stream=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(stream);recorder.current=mr;chunks.current=[];mr.ondataavailable=e=>{if(e.data.size)chunks.current.push(e.data)};mr.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());try{const blob=new Blob(chunks.current,{type:mr.mimeType||'audio/webm'});const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';bytes.forEach(b=>binary+=String.fromCharCode(b));const format=(mr.mimeType.split('/')[1]?.split(';')[0]||'webm') as 'm4a'|'mp3'|'wav'|'webm'|'mp4'|'flac'|'ogg';const result=await transcribe.mutateAsync({data:{audioBase64:btoa(binary),format:['m4a','mp3','wav','webm','mp4','flac','ogg'].includes(format)?format:'webm'}});const text=result.transcript.trim();setTranscript(text);if(text)update('voiceNotes',[{id:makeId(),text,createdAt:new Date().toISOString()},...data.voiceNotes])}catch(e){setVoiceError(e instanceof Error?e.message:'Could not transcribe this recording.')}};mr.start();setRecording(true)}catch(e){setVoiceError(e instanceof Error?e.message:'Microphone access could not be started.')}}
  const parsed=useMemo(()=>{if(!/\b(spent|paid|bought|expense|cost)\b/i.test(transcript))return null;const m=transcript.match(/(?:\$|£|€|د\.إ\s*)?(\d+(?:[.,]\d{1,2})?)\s*(GBP|USD|AED|EUR|\$|£|€)?/i);if(!m)return null;const cur=m[2]?.toUpperCase();const currency=(cur==='$'?'USD':cur==='£'?'GBP':cur==='€'?'EUR':(cur as Currency)||data.settings.baseCurrency);const amount=Number(m[1].replace(',','.'));return amount>0?{amount,currency,title:transcript.replace(m[0],'').replace(/\b(spent|paid|bought|expense|cost|on|for)\b/gi,'').trim()||'Voice expense'}:null},[transcript,data.settings.baseCurrency]);
  const saveVoiceExpense=async()=>{if(!parsed)return;try{const baseAmount=await convert(parsed.amount,parsed.currency,data.settings.baseCurrency);update('money',[{id:makeId(),kind:'expense',title:parsed.title,category:'Voice note',amount:parsed.amount,currency:parsed.currency,baseAmount,date:dateKey()},...data.money]);setTranscript('')}catch(e){setVoiceError(e instanceof Error?e.message:'Conversion failed; expense not saved.')}}
- const createReview=async()=>{setReview('');setReviewError('');const snapshot=[`Date: ${humanDate()}`,`Tasks completed: ${dayTasks.filter(t=>t.done).length} of ${dayTasks.length}.`,`Monthly expenses: ${money(spend,data.settings.baseCurrency)}; bills: ${money(billTotal,data.settings.baseCurrency)}.`,`Income target: ${money(data.settings.monthlyIncomeTarget,data.settings.baseCurrency)}.`,`Meals today: ${todayMeals.map(m=>`${m.name}, ${Math.round(m.calories)} kcal`).join('; ')||'none logged'}; ${Math.round(calories)} kcal of ${data.settings.calorieTarget}.`,`Recent workouts: ${data.workouts.slice(0,5).map(w=>`${w.exercise} ${w.weight}kg`).join('; ')||'none logged'}.`,`Study modules: ${data.modules.slice(0,5).map(m=>m.title).join('; ')||'none logged'}.`].join('\n');try{setReview((await insight.mutateAsync({data:{snapshot}})).summary)}catch{setReviewError('Could not create your review just now. Please try again.')}}
+ const createReview=async()=>{if(!isReviewSunday){setReviewError('Weekly reviews can only be created on Sundays.');return}setReviewError('');const snapshot=[`Weekly review period: ${weekStart} to ${weekEnd} (${weekRangeLabel}).`,`Daily tasks: ${reviewTasks.filter(item=>item.done).length} of ${reviewTasks.length} completed.`,`Money this week: ${money(reviewIncome,data.settings.baseCurrency)} income and ${money(reviewSpending,data.settings.baseCurrency)} spending. Monthly recurring bills currently total ${money(billTotal,data.settings.baseCurrency)}. Monthly income target: ${money(data.settings.monthlyIncomeTarget,data.settings.baseCurrency)}.`,`Meals: ${reviewMeals.length} logged across the week, ${Math.round(reviewCalories/7)} average kcal per day against a ${data.settings.calorieTarget} kcal daily target; ${Math.round(reviewMeals.reduce((sum,item)=>sum+item.protein,0))} g protein total.`,`Gym and diet check-ins: ${reviewChecks.filter(item=>item.gym==='went').length} gym days attended, ${reviewChecks.filter(item=>item.gym==='missed').length} missed, ${reviewChecks.filter(item=>item.diet==='good').length} good diet days, ${reviewChecks.filter(item=>item.diet==='off').length} off-track days.`,`Training: ${reviewWorkouts.length} workout logs${reviewWorkouts.length?` (${reviewWorkouts.slice(0,8).map(item=>`${item.exercise} ${item.weight} kg, ${item.sets} sets × ${item.reps} reps`).join('; ')})`:''}.`,`Learning: ${modulesAddedThisWeek} modules added this week; ${data.modules.filter(item=>item.done).length} of ${data.modules.length} modules currently marked complete.`,`Voice notes: ${reviewNotes.length} recorded this week.`,`Give a concise, supportive weekly reflection based only on these records. Point out one or two observed patterns and suggest one practical focus for next week. Do not invent missing information or make medical or financial guarantees.`].join('\n');try{const result=await insight.mutateAsync({data:{snapshot}});const savedReview:WeeklyReview={id:currentWeekReview?.id??makeId(),weekStart,weekEnd,createdAt:new Date().toISOString(),summary:result.summary,snapshot};update('weeklyReviews',[savedReview,...data.weeklyReviews.filter(item=>item.weekEnd!==weekEnd)])}catch{setReviewError(currentWeekReview?'Could not refresh this review. Your saved copy in history was not changed. Please try again.':'Could not create your review just now. Nothing was added to history. Please try again.')}}
  return <><TopHeading eyebrow={humanDate()} title="A little more in focus." subtitle="Your day, gathered in one calm place."/><div className="dashboard-grid">
   <Panel className="welcome-panel"><div className="welcome-orbit"><Activity size={30}/></div><div><span className="eyebrow light">A DAILY CHECK-IN</span><h2 className="serif">Make room for<br/>what matters.</h2><p>Your next small step is enough.</p></div><div className="welcome-bottom"><span>{dayTasks.filter(t=>t.done).length} of {dayTasks.length} tasks complete</span><span className="progressline"><i style={{width:`${dayTasks.length?dayTasks.filter(t=>t.done).length/dayTasks.length*100:0}%`}}/></span></div></Panel>
   <Panel className="task-panel"><PanelTitle detail={`${dayTasks.filter(t=>!t.done).length} to go`}>Today’s list</PanelTitle>{dayTasks.length?dayTasks.map(t=><div className="task-row" key={t.id}><button className={cls('task-check',t.done&&'checked')} onClick={()=>toggle(t.id)} data-testid={`toggle-task-${t.id}`} aria-label={`${t.done?'Reopen':'Complete'} ${t.title}`}>{t.done&&<Check size={13}/>}</button><span className={cls(t.done&&'strike')} data-testid={`task-title-${t.id}`}>{t.title}</span></div>):<Empty title="A fresh page" detail="Add one thing you’d like to move forward today." icon={CheckCircle2}/>}<form className="inline-form" onSubmit={e=>{e.preventDefault();addTask()}}><input data-testid="task-title" value={task} onChange={e=>setTask(e.target.value)} placeholder="Add a task for today"/><button disabled={!task.trim()} data-testid="add-task" aria-label="Add task"><Plus size={18}/></button></form></Panel>
   <Panel className="voice-panel"><div className="voice-heading"><div className="voice-icon"><AudioLines size={18}/></div><div><PanelTitle detail="VOICE NOTES">Capture as it comes</PanelTitle><p>Speak a thought, task or expense. You can review it before saving.</p></div></div><Button testId="voice-record" onClick={()=>void record()} disabled={transcribe.isPending}>{transcribe.isPending?<LoaderCircle className="spin" size={16}/>:recording?<span className="record-dot"/>:<Mic size={16}/>}{transcribe.isPending?'Transcribing…':recording?'Finish recording':'Start voice note'}</Button>{voiceError&&<p className="form-error" data-testid="voice-error">{voiceError}</p>}{transcript&&<div className="transcript-box"><p data-testid="voice-transcript">{transcript}</p>{parsed?<><small>Possible expense · {money(parsed.amount,parsed.currency)} · convert to {data.settings.baseCurrency} when saved</small><Button testId="save-voice-expense" onClick={()=>void saveVoiceExpense()}><ArrowDownLeft size={15}/>Log this expense</Button></>:<Button secondary testId="voice-to-task" onClick={()=>{update('tasks',[{id:makeId(),title:transcript,done:false,date:dateKey()},...data.tasks]);setTranscript('')}}><Check size={15}/>Add transcript as task</Button>}</div>}</Panel>
   <Panel className="pulse-panel"><div className="pulse-top"><span className="eyebrow">AT A GLANCE</span><Heart size={18}/></div><div className="pulse-stats"><div><strong data-testid="today-calories">{Math.round(calories).toLocaleString()}</strong><small>kcal today</small></div><div><strong>{money(spend+billTotal,data.settings.baseCurrency)}</strong><small>spend + bills</small></div></div><div className="pulse-bottom"><span>Calories</span><span>{Math.round(calories)} / {data.settings.calorieTarget} kcal</span></div><div className="thin-track"><i style={{width:`${Math.min(100,calories/Math.max(1,data.settings.calorieTarget)*100)}%`}}/></div></Panel>
-  <Panel className="review-panel"><div className="review-mark"><Sparkles size={18}/></div><div><span className="eyebrow">A MOMENT TO REFLECT</span><h2>Weekly review</h2><p>A considered look across your tasks, money, food, study and training.</p></div><Button testId="create-review" onClick={()=>void createReview()} disabled={insight.isPending}>{insight.isPending?<LoaderCircle className="spin" size={15}/>:<Sparkles size={15}/>} {insight.isPending?'Thinking…':'Create my review'}</Button>{reviewError&&<p className="form-error">{reviewError}</p>}{review&&<div className="review-result" data-testid="ai-review">{review}</div>}</Panel>
+   <Panel className="review-panel"><div className="review-mark"><Sparkles size={18}/></div><div><span className="eyebrow">A MOMENT TO REFLECT</span><h2>Weekly review</h2><p>{isReviewSunday?`This review covers Monday–Sunday · ${weekRangeLabel}.`:'Weekly reviews are available on Sundays and cover Monday through Sunday.'}</p></div><Button testId="create-review" onClick={()=>void createReview()} disabled={!isReviewSunday||insight.isPending}>{insight.isPending?<LoaderCircle className="spin" size={15}/>:isReviewSunday?<Sparkles size={15}/>:<Clock3 size={15}/>} {insight.isPending?'Thinking…':!isReviewSunday?'Available on Sundays':currentWeekReview?'Refresh this week’s review':'Create this week’s review'}</Button>{reviewError&&<p className="form-error">{reviewError}</p>}{currentWeekReview&&<div className="review-result" data-testid="ai-review"><div className="review-saved-heading"><span>Saved · {weekRangeLabel}</span><Link href="/settings" className="text-link">Review history <ChevronRight size={14}/></Link></div><p>{currentWeekReview.summary}</p></div>}</Panel>
   <Panel className="bills-panel"><PanelTitle detail="THIS MONTH">On the horizon</PanelTitle>{data.bills.length?data.bills.slice().sort((a,b)=>a.dueDay-b.dueDay).slice(0,4).map(b=><div className="bill-line" key={b.id}><div className="bill-date"><strong>{String(b.dueDay).padStart(2,'0')}</strong><small>DAY</small></div><span>{b.title}</span><b>{money(b.baseAmount,data.settings.baseCurrency)}</b></div>):<Empty title="Nothing due yet" detail="Add a recurring bill in Money to see it here." icon={Clock3}/>}<Link href="/money" className="text-link">Open money plan <ChevronRight size={15}/></Link></Panel>
  </div></>
 }
@@ -91,7 +114,7 @@ function MoneyPage({data,update}:{data:LifeData;update:<K extends keyof LifeData
 function StudyPage({data,update}:{data:LifeData;update:<K extends keyof LifeData>(key:K,value:LifeData[K])=>void}){
  const [category,setCategory]=useState('');const [title,setTitle]=useState('');const [notes,setNotes]=useState('');
  const groups=useMemo(()=>{const map=new Map<string,StudyModule[]>();data.modules.forEach(m=>map.set(m.category,[...(map.get(m.category)||[]),m]));return [...map.entries()]},[data.modules]);
- const add=()=>{const c=category.trim()||'General';if(!title.trim())return;const moduleNumber=data.modules.filter(m=>m.category.toLowerCase()===c.toLowerCase()).reduce((n,m)=>Math.max(n,m.moduleNumber),0)+1;update('modules',[{id:makeId(),category:c,title:title.trim(),moduleNumber,notes:notes.trim(),createdAt:new Date().toISOString()},...data.modules]);setTitle('');setNotes('')};
+  const add=()=>{const c=category.trim()||'General';if(!title.trim())return;const moduleNumber=data.modules.filter(m=>m.category.toLowerCase()===c.toLowerCase()).reduce((n,m)=>Math.max(n,m.moduleNumber),0)+1;update('modules',[{id:makeId(),category:c,title:title.trim(),moduleNumber,notes:notes.trim(),createdAt:new Date().toISOString(),done:false},...data.modules]);setTitle('');setNotes('')};
  return <><TopHeading eyebrow="Learning library" title="Keep what you learn." subtitle="A growing shelf of your study, organized by subject and in sequence."/><div className="study-layout"><Panel className="study-form"><div className="study-form-intro"><div className="round-icon"><BookOpen size={19}/></div><span className="eyebrow">A NEW ENTRY</span><h2 className="serif">Add a module</h2><p>Keep a breadcrumb trail of the ideas you’re collecting.</p></div><Field label="Category" value={category} onChange={setCategory} placeholder="Design, finance, languages…" testId="module-category"/><Field label="Module name" value={title} onChange={setTitle} placeholder="What did you study?" testId="module-title"/><Field label="Notes and takeaways" value={notes} onChange={setNotes} placeholder="Capture an idea worth remembering…" testId="module-notes" multiline/><Button testId="add-module" onClick={add} disabled={!title.trim()}><Plus size={16}/>Save module</Button><p className="quiet-note">Numbers are assigned automatically within each category.</p></Panel><div className="study-library"><Panel><PanelTitle detail={`${data.modules.length} SAVED`}>Your library</PanelTitle>{groups.length?groups.map(([group,mods])=><section className="module-group" key={group}><header><h3>{group}</h3><span>{mods.length} {mods.length===1?'module':'modules'}</span></header>{mods.slice().sort((a,b)=>a.moduleNumber-b.moduleNumber).map(m=><article className="module-item" key={m.id}><div className="module-number">{String(m.moduleNumber).padStart(2,'0')}</div><div className="module-body"><b>{m.title}</b><small>{new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric'}).format(new Date(m.createdAt))}</small>{m.notes&&<p>{m.notes}</p>}</div><IconButton label={`Delete ${m.title}`} testId={`remove-module-${m.id}`} onClick={()=>update('modules',data.modules.filter(x=>x.id!==m.id))}><Trash2 size={15}/></IconButton></article>)}</section>):<Empty title="Your first module starts here" detail="Add a subject and a title. Each module will be numbered as your library grows." icon={BookOpen}/>}</Panel><Panel className="study-rhythm"><span className="eyebrow">YOUR STUDY RHYTHM</span><strong className="serif">{data.modules.length}</strong><p>modules saved across {new Set(data.modules.map(m=>m.category)).size} {new Set(data.modules.map(m=>m.category)).size===1?'subject':'subjects'}</p></Panel></div></div></>
 }
 type Food={id:string;name:string;source:string;calories:number;protein:number;carbs:number;fat:number};
@@ -133,11 +156,117 @@ function SettingsPage({data,update}:{data:LifeData;update:<K extends keyof LifeD
  const test=async()=>{setMessage('');setError('');if(!token.trim()||!data.settings.telegramChatId.trim()){setError('Enter both your bot token and chat ID before testing.');return}try{const result=await send.mutateAsync({data:{token:token.trim(),chatId:data.settings.telegramChatId.trim()}});if(result.sent)setMessage('Test message sent. Telegram is connected.');else setError(result.error||'Telegram did not accept the test message.')}catch(e){setError(e instanceof Error?e.message:'Telegram connection failed. Check the token and chat ID.')}}
  return <><TopHeading eyebrow="Personal preferences" title="Make it yours." subtitle="Set the targets and reminders that make this space feel personal."/><div className="settings-layout"><Panel><div className="setting-icon"><Wallet size={18}/></div><PanelTitle>Money preferences</PanelTitle><label className="field"><span>Main currency</span><select data-testid="setting-currency" value={data.settings.baseCurrency} disabled={changingCurrency} onChange={e=>void changeBaseCurrency(e.target.value as Currency)}>{currencies.map(c=><option key={c}>{c}</option>)}</select></label><p className="quiet-note">New amounts use this currency. Changing it revalues existing totals at the current exchange rate.</p>{currencyError&&<p className="form-error" data-testid="currency-error">{currencyError}</p>}<Field label={`Monthly income target (${data.settings.baseCurrency})`} value={data.settings.monthlyIncomeTarget||''} onChange={v=>change('monthlyIncomeTarget',Number(v)||0)} placeholder="Set a monthly target" type="number" testId="setting-income-target"/><Field label={`Monthly spending budget (${data.settings.baseCurrency})`} value={data.settings.monthlySpendingBudget||''} onChange={v=>change('monthlySpendingBudget',Number(v)||0)} placeholder="Set a comfortable limit" type="number" testId="setting-spending-budget"/></Panel><Panel><div className="setting-icon"><Heart size={18}/></div><PanelTitle>Nutrition & check-ins</PanelTitle><Field label="Daily calorie target" value={data.settings.calorieTarget} onChange={v=>change('calorieTarget',Number(v)||0)} type="number" testId="setting-calorie-target"/><Field label="Daily protein target (g)" value={data.settings.proteinTarget} onChange={v=>change('proteinTarget',Number(v)||0)} type="number" testId="setting-protein-target"/><div className="form-split"><Field label="Meal check-in time" value={data.settings.mealPrompt} onChange={v=>change('mealPrompt',v)} type="time" testId="setting-meal-prompt"/><Field label="Workout check-in time" value={data.settings.workoutPrompt} onChange={v=>change('workoutPrompt',v)} type="time" testId="setting-workout-prompt"/></div><p className="quiet-note">These times are saved as personal preferences and used as suggested log times.</p></Panel><Panel className="telegram-panel"><div className="setting-icon"><Activity size={18}/></div><PanelTitle>Telegram connection</PanelTitle><p className="panel-copy">Send a one-time test message to check your bot setup. Create a bot with Telegram’s BotFather, then add its token and your chat ID.</p><Field label="Bot API token" value={token} onChange={setToken} placeholder="Token stays in memory only" type={show?'text':'password'} testId="telegram-token"/><button className="plain-link" data-testid="toggle-token-visibility" onClick={()=>setShow(v=>!v)}>{show?'Hide token':'Show token'}</button><Field label="Telegram chat ID" value={data.settings.telegramChatId} onChange={v=>change('telegramChatId',v)} placeholder="Your personal or group chat ID" testId="telegram-chat-id"/><Button testId="test-telegram" onClick={()=>void test()} disabled={send.isPending||!token.trim()||!data.settings.telegramChatId.trim()}>{send.isPending?<LoaderCircle className="spin" size={16}/>:<ArrowUpRight size={16}/>}Send test message</Button>{message&&<p className="success-note" data-testid="telegram-status">{message}</p>}{error&&<p className="form-error" data-testid="telegram-error">{error}</p>}<div className="privacy-callout"><CheckCircle2 size={16}/><p>Your bot token is never written to local storage. It stays in this page’s memory and is sent to the test endpoint only when you ask to send a message.</p></div></Panel><Panel className="privacy-panel"><div className="setting-icon"><Settings2 size={18}/></div><PanelTitle>Data & privacy</PanelTitle><p>Your tasks, money, meals, workouts, notes and modules are stored in this browser. Workout photos are kept in IndexedDB on this device.</p><p>Voice transcription, exercise photo identification and AI reviews send only the recording, image or summary you request to the service. Nutrition search uses USDA FoodData Central and Open Food Facts; check labels when precision matters.</p><div className="storage-badge"><span className="service-dot online"/>Local-first by design</div></Panel></div></>
 }
-function NotFound(){return <div className="not-found"><span className="eyebrow">PAGE NOT FOUND</span><h1 className="serif">Let’s find your way back.</h1><Link href="/" className="button"><Home size={16}/>Return to today</Link></div>}
+function NotFound(){return <div className="not-found"><span className="eyebrow">PAGE NOT FOUND</span><h1 className="serif">Let’s find your way back.</h1><Link href="/user-portal" className="button"><Home size={16}/>Return to today</Link></div>}
 const queryClient=new QueryClient();
-function Router(){
+function TrackerRouter(){
  const {data,update,ready}=useLife();
- return <AppShell>{!ready?<div className="loading-surface"><div className="skeleton skeleton-heading"/><div className="skeleton-grid"><div className="skeleton"/><div className="skeleton"/></div></div>:<Switch><Route path="/"><HomePage data={data} update={update}/></Route><Route path="/money"><MoneyPage data={data} update={update}/></Route><Route path="/study"><StudyPage data={data} update={update}/></Route><Route path="/health"><HealthPage data={data} update={update}/></Route><Route path="/settings"><SettingsPage data={data} update={update}/></Route><Route component={NotFound}/></Switch>}</AppShell>
+ const [path]=useLocation();
+ const reminderSync=useSyncLifeReminderSnapshot();
+ useEffect(()=>{
+  if(!ready)return;
+  void reminderSync.mutateAsync({data:{
+   tasks:data.tasks.map(({id,title,done,date})=>({id,title,done,date})),
+   modules:data.modules.map(({id,title,category,moduleNumber,done})=>({id,title,category,moduleNumber,done:Boolean(done)})),
+  }}).catch(()=>{});
+ },[ready,data.tasks,data.modules]);
+ const route=path==='/user-portal'?'/':path;
+ const page=route==='/'?<HomePage data={data} update={update}/>
+  :route==='/money'?<MoneyPage data={data} update={update}/>
+  :route==='/study'?<StudyDashboard data={data} update={update}/>
+  :route==='/health'?<HealthDashboard data={data} update={update}/>
+  :route==='/settings'?<SettingsDashboard data={data} update={update}/>
+  :<NotFound/>;
+ return <AppShell>{!ready?<div className="loading-surface"><div className="skeleton skeleton-heading"/><div className="skeleton-grid"><div className="skeleton"/><div className="skeleton"/></div></div>:page}</AppShell>
 }
-function App(){return <QueryClientProvider client={queryClient}><WouterRouter><Router/></WouterRouter></QueryClientProvider>}
+function AuthLoading(){return <div className="auth-loading" role="status">Opening your private tracker…</div>}
+function HomeRedirect(){
+ const {isLoaded,isSignedIn}=useAuth();
+ if(!isLoaded)return <AuthLoading/>;
+ return isSignedIn?<Redirect to="/user-portal" replace/>:<LandingPage/>;
+}
+function AuthenticatedTracker(){
+ const {isLoaded,isSignedIn}=useAuth();
+ if(!isLoaded)return <AuthLoading/>;
+ if(!isSignedIn)return <Redirect to="/" replace/>;
+ return <TrackerRouter/>;
+}
+function LandingPage(){
+ return <main className="auth-landing">
+  <section className="auth-story">
+   <div className="auth-brand"><span className="auth-brand-mark"><Check size={19}/></span><span>daybook</span></div>
+   <p className="auth-kicker">A PRIVATE SPACE FOR YOUR EVERYDAY</p>
+   <h1>Make room for the life you’re building.</h1>
+   <p className="auth-description">Keep daily tasks, learning, spending, meals, and training in one calm place. See your patterns without turning your day into another project.</p>
+   <div className="auth-features">
+    <div className="auth-feature"><span className="auth-feature-mark"/>Daily tasks and study modules</div>
+    <div className="auth-feature"><span className="auth-feature-mark"/>Food, macros, and gym progress</div>
+    <div className="auth-feature"><span className="auth-feature-mark"/>Monthly money reviews</div>
+    <div className="auth-feature"><span className="auth-feature-mark"/>Optional Telegram reminders</div>
+   </div>
+  </section>
+  <section className="auth-card-wrap">
+   <h2>Start with today</h2>
+   <p>Your main tracker data stays in this browser.</p>
+   <div className="auth-actions">
+    <Link href="/sign-up" className="auth-action-primary">Create your account</Link>
+    <Link href="/sign-in" className="auth-action-secondary">Sign in</Link>
+   </div>
+   <div className="auth-local-note"><Check size={15}/><span>Only the Telegram settings and task/module reminder checklist are stored on the server. Reminder credentials are encrypted.</span></div>
+  </section>
+ </main>
+}
+function SignInPage(){
+ return <main className="auth-screen"><SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /></main>;
+}
+function SignUpPage(){
+ return <main className="auth-screen"><SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} /></main>;
+}
+function ClerkQueryClientCacheInvalidator(){
+ const {addListener}=useClerk();
+ const client=useQueryClient();
+ const previousUserId=useRef<string|null|undefined>(undefined);
+ useEffect(()=>{
+  const unsubscribe=addListener(({user})=>{
+   const userId=user?.id??null;
+   if(previousUserId.current!==undefined&&previousUserId.current!==userId)client.clear();
+   previousUserId.current=userId;
+  });
+  return unsubscribe;
+ },[addListener,client]);
+ return null;
+}
+function stripBase(path:string){
+ return basePath&&path.startsWith(basePath)?path.slice(basePath.length)||'/':path;
+}
+function ClerkProviderWithRoutes(){
+ const [,setLocation]=useLocation();
+ if(!clerkPubKey)throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY for sign-in.');
+ return <ClerkProvider
+  publishableKey={clerkPubKey}
+  proxyUrl={clerkProxyUrl}
+  appearance={clerkAppearance}
+  signInUrl={`${basePath}/sign-in`}
+  signUpUrl={`${basePath}/sign-up`}
+  routerPush={to=>setLocation(stripBase(to))}
+  routerReplace={to=>setLocation(stripBase(to),{replace:true})}
+ >
+  <QueryClientProvider client={queryClient}>
+   <ClerkQueryClientCacheInvalidator/>
+   <Switch>
+    <Route path="/" component={HomeRedirect}/>
+    <Route path="/sign-in/*?" component={SignInPage}/>
+    <Route path="/sign-up/*?" component={SignUpPage}/>
+    <Route path="/user-portal/*?" component={AuthenticatedTracker}/>
+    <Route path="/money" component={AuthenticatedTracker}/>
+    <Route path="/study" component={AuthenticatedTracker}/>
+    <Route path="/health" component={AuthenticatedTracker}/>
+    <Route path="/settings" component={AuthenticatedTracker}/>
+    <Route component={HomeRedirect}/>
+   </Switch>
+  </QueryClientProvider>
+ </ClerkProvider>;
+}
+function App(){
+ return <WouterRouter base={basePath}><ClerkProviderWithRoutes/></WouterRouter>;
+}
 export default App;

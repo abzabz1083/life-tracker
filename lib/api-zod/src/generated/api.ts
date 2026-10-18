@@ -60,7 +60,233 @@ export const IdentifyExerciseMachineResponse = zod.object({
 
 
 /**
- * @summary Send a one-time Telegram connection test
+ * @summary Read nutrition values from a food package photo
+ */
+export const readLifeNutritionLabelBodyImageBase64Max = 8000000;
+
+
+
+export const ReadLifeNutritionLabelBody = zod.object({
+  "imageBase64": zod.string().max(readLifeNutritionLabelBodyImageBase64Max),
+  "mimeType": zod.enum(['image/jpeg', 'image/png', 'image/webp'])
+})
+
+export const readLifeNutritionLabelResponseFoodNameMax = 200;
+
+export const readLifeNutritionLabelResponseServingGramsExclusiveMin = 0;
+
+export const readLifeNutritionLabelResponseCaloriesMin = 0;
+
+export const readLifeNutritionLabelResponseProteinMin = 0;
+
+export const readLifeNutritionLabelResponseCarbsMin = 0;
+
+export const readLifeNutritionLabelResponseFatMin = 0;
+
+export const readLifeNutritionLabelResponseLabelNotesMax = 500;
+
+
+
+export const ReadLifeNutritionLabelResponse = zod.object({
+  "foodName": zod.string().max(readLifeNutritionLabelResponseFoodNameMax),
+  "servingGrams": zod.number().gt(readLifeNutritionLabelResponseServingGramsExclusiveMin),
+  "calories": zod.number().min(readLifeNutritionLabelResponseCaloriesMin),
+  "protein": zod.number().min(readLifeNutritionLabelResponseProteinMin),
+  "carbs": zod.number().min(readLifeNutritionLabelResponseCarbsMin),
+  "fat": zod.number().min(readLifeNutritionLabelResponseFatMin),
+  "labelNotes": zod.string().max(readLifeNutritionLabelResponseLabelNotesMax)
+})
+
+
+/**
+ * @summary Search USDA FoodData Central and Open Food Facts
+ */
+export const searchLifeNutritionQueryQueryMin = 2;
+export const searchLifeNutritionQueryQueryMax = 120;
+
+
+
+export const SearchLifeNutritionQueryParams = zod.object({
+  "query": zod.coerce.string().min(searchLifeNutritionQueryQueryMin).max(searchLifeNutritionQueryQueryMax)
+})
+
+export const searchLifeNutritionResponseCaloriesMin = 0;
+
+export const searchLifeNutritionResponseProteinMin = 0;
+
+export const searchLifeNutritionResponseCarbsMin = 0;
+
+export const searchLifeNutritionResponseFatMin = 0;
+
+
+
+export const SearchLifeNutritionResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "source": zod.enum(['USDA FoodData Central', 'Open Food Facts']),
+  "calories": zod.number().min(searchLifeNutritionResponseCaloriesMin),
+  "protein": zod.number().min(searchLifeNutritionResponseProteinMin),
+  "carbs": zod.number().min(searchLifeNutritionResponseCarbsMin),
+  "fat": zod.number().min(searchLifeNutritionResponseFatMin)
+})
+export const SearchLifeNutritionResponse = zod.array(SearchLifeNutritionResponseItem)
+
+
+/**
+ * @summary Suggest ingredient portions against today's remaining nutrition targets
+ */
+export const createLifeMealPlanBodyIngredientsMin = 2;
+export const createLifeMealPlanBodyIngredientsMax = 500;
+
+export const createLifeMealPlanBodyRemainingCaloriesMin = 0;
+
+export const createLifeMealPlanBodyRemainingProteinMin = 0;
+
+export const createLifeMealPlanBodyEatenTodayItemNameMax = 200;
+
+export const createLifeMealPlanBodyEatenTodayItemCaloriesMin = 0;
+
+export const createLifeMealPlanBodyEatenTodayItemProteinMin = 0;
+
+export const createLifeMealPlanBodyEatenTodayItemCarbsMin = 0;
+
+export const createLifeMealPlanBodyEatenTodayItemFatMin = 0;
+
+export const createLifeMealPlanBodyEatenTodayMax = 30;
+
+
+
+export const CreateLifeMealPlanBody = zod.object({
+  "ingredients": zod.string().min(createLifeMealPlanBodyIngredientsMin).max(createLifeMealPlanBodyIngredientsMax),
+  "remainingCalories": zod.number().min(createLifeMealPlanBodyRemainingCaloriesMin),
+  "remainingProtein": zod.number().min(createLifeMealPlanBodyRemainingProteinMin),
+  "eatenToday": zod.array(zod.object({
+  "name": zod.string().max(createLifeMealPlanBodyEatenTodayItemNameMax),
+  "calories": zod.number().min(createLifeMealPlanBodyEatenTodayItemCaloriesMin),
+  "protein": zod.number().min(createLifeMealPlanBodyEatenTodayItemProteinMin),
+  "carbs": zod.number().min(createLifeMealPlanBodyEatenTodayItemCarbsMin),
+  "fat": zod.number().min(createLifeMealPlanBodyEatenTodayItemFatMin)
+})).max(createLifeMealPlanBodyEatenTodayMax)
+})
+
+export const createLifeMealPlanResponseTitleMax = 120;
+
+export const createLifeMealPlanResponseNoteMax = 500;
+
+export const createLifeMealPlanResponseIngredientsItemFoodMax = 100;
+
+export const createLifeMealPlanResponseIngredientsItemGramsExclusiveMin = 0;
+export const createLifeMealPlanResponseIngredientsItemGramsMax = 2000;
+
+export const createLifeMealPlanResponseIngredientsItemReasonMax = 200;
+
+export const createLifeMealPlanResponseIngredientsMax = 6;
+
+
+
+export const CreateLifeMealPlanResponse = zod.object({
+  "title": zod.string().max(createLifeMealPlanResponseTitleMax),
+  "note": zod.string().max(createLifeMealPlanResponseNoteMax),
+  "ingredients": zod.array(zod.object({
+  "food": zod.string().max(createLifeMealPlanResponseIngredientsItemFoodMax),
+  "grams": zod.number().gt(createLifeMealPlanResponseIngredientsItemGramsExclusiveMin).max(createLifeMealPlanResponseIngredientsItemGramsMax),
+  "reason": zod.string().max(createLifeMealPlanResponseIngredientsItemReasonMax)
+})).min(1).max(createLifeMealPlanResponseIngredientsMax)
+})
+
+
+/**
+ * @summary Get the signed-in user's Telegram reminder settings
+ */
+export const GetLifeReminderSettingsResponse = zod.object({
+  "chatId": zod.string(),
+  "time": zod.string(),
+  "timezone": zod.string(),
+  "enabled": zod.boolean(),
+  "tokenConfigured": zod.boolean()
+})
+
+
+/**
+ * @summary Save protected Telegram reminder settings
+ */
+export const updateLifeReminderSettingsBodyChatIdMax = 128;
+
+export const updateLifeReminderSettingsBodyBotTokenMin = 10;
+export const updateLifeReminderSettingsBodyBotTokenMax = 256;
+
+export const updateLifeReminderSettingsBodyTimeRegExp = new RegExp('^([01]\\d|2[0-3]):[0-5]\\d$');
+export const updateLifeReminderSettingsBodyTimezoneMax = 100;
+
+
+
+export const UpdateLifeReminderSettingsBody = zod.object({
+  "chatId": zod.string().min(1).max(updateLifeReminderSettingsBodyChatIdMax),
+  "botToken": zod.string().min(updateLifeReminderSettingsBodyBotTokenMin).max(updateLifeReminderSettingsBodyBotTokenMax).nullish(),
+  "time": zod.string().regex(updateLifeReminderSettingsBodyTimeRegExp),
+  "timezone": zod.string().min(1).max(updateLifeReminderSettingsBodyTimezoneMax),
+  "enabled": zod.boolean()
+})
+
+export const UpdateLifeReminderSettingsResponse = zod.object({
+  "chatId": zod.string(),
+  "time": zod.string(),
+  "timezone": zod.string(),
+  "enabled": zod.boolean(),
+  "tokenConfigured": zod.boolean()
+})
+
+
+/**
+ * @summary Delete the signed-in user's Telegram reminder configuration
+ */
+export const DeleteLifeReminderSettingsResponse = zod.void()
+
+
+/**
+ * @summary Sync today's incomplete tasks and unfinished study modules for reminders
+ */
+export const syncLifeReminderSnapshotBodyTasksItemIdMax = 80;
+
+export const syncLifeReminderSnapshotBodyTasksItemTitleMax = 300;
+
+export const syncLifeReminderSnapshotBodyTasksItemDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const syncLifeReminderSnapshotBodyTasksMax = 300;
+
+export const syncLifeReminderSnapshotBodyModulesItemIdMax = 80;
+
+export const syncLifeReminderSnapshotBodyModulesItemCategoryMax = 100;
+
+export const syncLifeReminderSnapshotBodyModulesItemTitleMax = 300;
+
+
+export const syncLifeReminderSnapshotBodyModulesMax = 500;
+
+
+
+export const SyncLifeReminderSnapshotBody = zod.object({
+  "tasks": zod.array(zod.object({
+  "id": zod.string().max(syncLifeReminderSnapshotBodyTasksItemIdMax),
+  "title": zod.string().max(syncLifeReminderSnapshotBodyTasksItemTitleMax),
+  "date": zod.string().regex(syncLifeReminderSnapshotBodyTasksItemDateRegExp),
+  "done": zod.boolean()
+})).max(syncLifeReminderSnapshotBodyTasksMax),
+  "modules": zod.array(zod.object({
+  "id": zod.string().max(syncLifeReminderSnapshotBodyModulesItemIdMax),
+  "category": zod.string().max(syncLifeReminderSnapshotBodyModulesItemCategoryMax),
+  "title": zod.string().max(syncLifeReminderSnapshotBodyModulesItemTitleMax),
+  "moduleNumber": zod.number().int().min(1),
+  "done": zod.boolean()
+})).max(syncLifeReminderSnapshotBodyModulesMax)
+})
+
+export const SyncLifeReminderSnapshotResponse = zod.object({
+  "saved": zod.boolean()
+})
+
+
+/**
+ * @summary Send a one-time Telegram test using the saved bot setup
  */
 export const sendLifeTelegramTestBodyTokenMin = 10;
 export const sendLifeTelegramTestBodyTokenMax = 256;
@@ -70,8 +296,8 @@ export const sendLifeTelegramTestBodyChatIdMax = 128;
 
 
 export const SendLifeTelegramTestBody = zod.object({
-  "token": zod.string().min(sendLifeTelegramTestBodyTokenMin).max(sendLifeTelegramTestBodyTokenMax),
-  "chatId": zod.string().min(1).max(sendLifeTelegramTestBodyChatIdMax)
+  "token": zod.string().min(sendLifeTelegramTestBodyTokenMin).max(sendLifeTelegramTestBodyTokenMax).optional(),
+  "chatId": zod.string().min(1).max(sendLifeTelegramTestBodyChatIdMax).optional()
 })
 
 export const SendLifeTelegramTestResponse = zod.object({

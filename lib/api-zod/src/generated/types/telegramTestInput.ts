@@ -11,10 +11,10 @@ export interface TelegramTestInput {
      * @minLength 10
      * @maxLength 256
      */
-  token: string;
+  token?: string;
   /**
      * @minLength 1
      * @maxLength 128
      */
-  chatId: string;
+  chatId?: string;
 }

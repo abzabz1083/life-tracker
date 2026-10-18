@@ -80,11 +80,147 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExerciseSuggestion"
+  /life/nutrition-label:
+    post:
+      operationId: readLifeNutritionLabel
+      tags: [life]
+      summary: Read nutrition values from a food package photo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NutritionLabelPhoto"
+      responses:
+        "200":
+          description: Nutrition values read from the label
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionLabel"
+        "400":
+          description: Invalid photo or unreadable label
+        "413":
+          description: Photo is too large
+        "502":
+          description: Label could not be read
+  /life/nutrition-search:
+    get:
+      operationId: searchLifeNutrition
+      tags: [life]
+      summary: Search USDA FoodData Central and Open Food Facts
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 120
+      responses:
+        "200":
+          description: Nutrition results per 100 grams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NutritionFood"
+        "400":
+          description: Search term is too short
+        "503":
+          description: Nutrition providers are temporarily unavailable
+  /life/meal-plan:
+    post:
+      operationId: createLifeMealPlan
+      tags: [life]
+      summary: Suggest ingredient portions against today's remaining nutrition targets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifeMealPlanInput"
+      responses:
+        "200":
+          description: Suggested meal and ingredient portions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifeMealPlan"
+        "400":
+          description: Invalid meal request
+        "502":
+          description: Meal suggestion could not be generated
+  /life/reminders:
+    get:
+      operationId: getLifeReminderSettings
+      tags: [life]
+      summary: Get the signed-in user's Telegram reminder settings
+      responses:
+        "200":
+          description: Reminder settings without secret credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifeReminderSettings"
+        "401":
+          description: Sign-in required
+    put:
+      operationId: updateLifeReminderSettings
+      tags: [life]
+      summary: Save protected Telegram reminder settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifeReminderSettingsInput"
+      responses:
+        "200":
+          description: Saved reminder settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifeReminderSettings"
+        "400":
+          description: Invalid settings or missing bot token
+        "401":
+          description: Sign-in required
+    delete:
+      operationId: deleteLifeReminderSettings
+      tags: [life]
+      summary: Delete the signed-in user's Telegram reminder configuration
+      responses:
+        "204":
+          description: Reminder configuration deleted
+        "401":
+          description: Sign-in required
+  /life/reminders/snapshot:
+    put:
+      operationId: syncLifeReminderSnapshot
+      tags: [life]
+      summary: Sync today's incomplete tasks and unfinished study modules for reminders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifeReminderSnapshotInput"
+      responses:
+        "200":
+          description: Reminder items saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifeReminderSnapshotResult"
+        "401":
+          description: Sign-in required
   /life/telegram-test:
     post:
       operationId: sendLifeTelegramTest
       tags: [life]
-      summary: Send a one-time Telegram connection test
+      summary: Send a one-time Telegram test using the saved bot setup
       requestBody:
         required: true
         content:
@@ -104,6 +240,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TelegramTestResult"
+        "401":
+          description: Sign-in required
+        "404":
+          description: Telegram reminder settings have not been saved
 components:
   schemas:
     HealthStatus:
@@ -164,6 +304,222 @@ components:
           type: string
       required:
         - suggestion
+    NutritionLabelPhoto:
+      type: object
+      properties:
+        imageBase64:
+          type: string
+          maxLength: 8000000
+        mimeType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+      required:
+        - imageBase64
+        - mimeType
+    NutritionLabel:
+      type: object
+      properties:
+        foodName:
+          type: string
+          maxLength: 200
+        servingGrams:
+          type: number
+          exclusiveMinimum: 0
+        calories:
+          type: number
+          minimum: 0
+        protein:
+          type: number
+          minimum: 0
+        carbs:
+          type: number
+          minimum: 0
+        fat:
+          type: number
+          minimum: 0
+        labelNotes:
+          type: string
+          maxLength: 500
+      required: [foodName, servingGrams, calories, protein, carbs, fat, labelNotes]
+    NutritionFood:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        source:
+          type: string
+          enum: [USDA FoodData Central, Open Food Facts]
+        calories:
+          type: number
+          minimum: 0
+        protein:
+          type: number
+          minimum: 0
+        carbs:
+          type: number
+          minimum: 0
+        fat:
+          type: number
+          minimum: 0
+      required: [id, name, source, calories, protein, carbs, fat]
+    MealMacroSummary:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        calories:
+          type: number
+          minimum: 0
+        protein:
+          type: number
+          minimum: 0
+        carbs:
+          type: number
+          minimum: 0
+        fat:
+          type: number
+          minimum: 0
+      required: [name, calories, protein, carbs, fat]
+    LifeMealPlanInput:
+      type: object
+      properties:
+        ingredients:
+          type: string
+          minLength: 2
+          maxLength: 500
+        remainingCalories:
+          type: number
+          minimum: 0
+        remainingProtein:
+          type: number
+          minimum: 0
+        eatenToday:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealMacroSummary"
+          maxItems: 30
+      required: [ingredients, remainingCalories, remainingProtein, eatenToday]
+    MealPlanIngredient:
+      type: object
+      properties:
+        food:
+          type: string
+          maxLength: 100
+        grams:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 2000
+        reason:
+          type: string
+          maxLength: 200
+      required: [food, grams, reason]
+    LifeMealPlan:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 120
+        note:
+          type: string
+          maxLength: 500
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealPlanIngredient"
+          minItems: 1
+          maxItems: 6
+      required: [title, note, ingredients]
+    LifeReminderTask:
+      type: object
+      properties:
+        id:
+          type: string
+          maxLength: 80
+        title:
+          type: string
+          maxLength: 300
+        date:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        done:
+          type: boolean
+      required: [id, title, date, done]
+    LifeReminderModule:
+      type: object
+      properties:
+        id:
+          type: string
+          maxLength: 80
+        category:
+          type: string
+          maxLength: 100
+        title:
+          type: string
+          maxLength: 300
+        moduleNumber:
+          type: integer
+          minimum: 1
+        done:
+          type: boolean
+      required: [id, category, title, moduleNumber, done]
+    LifeReminderSnapshotInput:
+      type: object
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/LifeReminderTask"
+          maxItems: 300
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/LifeReminderModule"
+          maxItems: 500
+      required: [tasks, modules]
+    LifeReminderSnapshotResult:
+      type: object
+      properties:
+        saved:
+          type: boolean
+      required: [saved]
+    LifeReminderSettingsInput:
+      type: object
+      properties:
+        chatId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        botToken:
+          type: [string, "null"]
+          minLength: 10
+          maxLength: 256
+        time:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 100
+        enabled:
+          type: boolean
+      required: [chatId, time, timezone, enabled]
+    LifeReminderSettings:
+      type: object
+      properties:
+        chatId:
+          type: string
+        time:
+          type: string
+        timezone:
+          type: string
+        enabled:
+          type: boolean
+        tokenConfigured:
+          type: boolean
+      required: [chatId, time, timezone, enabled, tokenConfigured]
     TelegramTestInput:
       type: object
       properties:
@@ -175,9 +531,6 @@ components:
           type: string
           minLength: 1
           maxLength: 128
-      required:
-        - token
-        - chatId
     TelegramTestResult:
       type: object
       properties:

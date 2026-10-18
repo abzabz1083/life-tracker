@@ -58,21 +58,197 @@ export interface ExerciseSuggestion {
   suggestion: string;
 }
 
-export interface TelegramTestInput {
+export type NutritionLabelPhotoMimeType = typeof NutritionLabelPhotoMimeType[keyof typeof NutritionLabelPhotoMimeType];
+
+
+export const NutritionLabelPhotoMimeType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+} as const;
+
+export interface NutritionLabelPhoto {
+  /** @maxLength 8000000 */
+  imageBase64: string;
+  mimeType: NutritionLabelPhotoMimeType;
+}
+
+export interface NutritionLabel {
+  /** @maxLength 200 */
+  foodName: string;
+  /** @exclusiveMinimum 0 */
+  servingGrams: number;
+  /** @minimum 0 */
+  calories: number;
+  /** @minimum 0 */
+  protein: number;
+  /** @minimum 0 */
+  carbs: number;
+  /** @minimum 0 */
+  fat: number;
+  /** @maxLength 500 */
+  labelNotes: string;
+}
+
+export type NutritionFoodSource = typeof NutritionFoodSource[keyof typeof NutritionFoodSource];
+
+
+export const NutritionFoodSource = {
+  USDA_FoodData_Central: 'USDA FoodData Central',
+  Open_Food_Facts: 'Open Food Facts',
+} as const;
+
+export interface NutritionFood {
+  id: string;
+  name: string;
+  source: NutritionFoodSource;
+  /** @minimum 0 */
+  calories: number;
+  /** @minimum 0 */
+  protein: number;
+  /** @minimum 0 */
+  carbs: number;
+  /** @minimum 0 */
+  fat: number;
+}
+
+export interface MealMacroSummary {
+  /** @maxLength 200 */
+  name: string;
+  /** @minimum 0 */
+  calories: number;
+  /** @minimum 0 */
+  protein: number;
+  /** @minimum 0 */
+  carbs: number;
+  /** @minimum 0 */
+  fat: number;
+}
+
+export interface LifeMealPlanInput {
   /**
-     * @minLength 10
-     * @maxLength 256
+     * @minLength 2
+     * @maxLength 500
      */
-  token: string;
+  ingredients: string;
+  /** @minimum 0 */
+  remainingCalories: number;
+  /** @minimum 0 */
+  remainingProtein: number;
+  /** @maxItems 30 */
+  eatenToday: MealMacroSummary[];
+}
+
+export interface MealPlanIngredient {
+  /** @maxLength 100 */
+  food: string;
+  /**
+     * @maximum 2000
+     * @exclusiveMinimum 0
+     */
+  grams: number;
+  /** @maxLength 200 */
+  reason: string;
+}
+
+export interface LifeMealPlan {
+  /** @maxLength 120 */
+  title: string;
+  /** @maxLength 500 */
+  note: string;
+  /**
+     * @minItems 1
+     * @maxItems 6
+     */
+  ingredients: MealPlanIngredient[];
+}
+
+export interface LifeReminderTask {
+  /** @maxLength 80 */
+  id: string;
+  /** @maxLength 300 */
+  title: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  date: string;
+  done: boolean;
+}
+
+export interface LifeReminderModule {
+  /** @maxLength 80 */
+  id: string;
+  /** @maxLength 100 */
+  category: string;
+  /** @maxLength 300 */
+  title: string;
+  /** @minimum 1 */
+  moduleNumber: number;
+  done: boolean;
+}
+
+export interface LifeReminderSnapshotInput {
+  /** @maxItems 300 */
+  tasks: LifeReminderTask[];
+  /** @maxItems 500 */
+  modules: LifeReminderModule[];
+}
+
+export interface LifeReminderSnapshotResult {
+  saved: boolean;
+}
+
+export interface LifeReminderSettingsInput {
   /**
      * @minLength 1
      * @maxLength 128
      */
   chatId: string;
+  /**
+     * @minLength 10
+     * @maxLength 256
+     * @nullable
+     */
+  botToken?: string | null;
+  /** @pattern ^([01]\d|2[0-3]):[0-5]\d$ */
+  time: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  timezone: string;
+  enabled: boolean;
+}
+
+export interface LifeReminderSettings {
+  chatId: string;
+  time: string;
+  timezone: string;
+  enabled: boolean;
+  tokenConfigured: boolean;
+}
+
+export interface TelegramTestInput {
+  /**
+     * @minLength 10
+     * @maxLength 256
+     */
+  token?: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  chatId?: string;
 }
 
 export interface TelegramTestResult {
   sent: boolean;
   error?: string;
 }
+
+export type SearchLifeNutritionParams = {
+/**
+ * @minLength 2
+ * @maxLength 120
+ */
+query: string;
+};
 

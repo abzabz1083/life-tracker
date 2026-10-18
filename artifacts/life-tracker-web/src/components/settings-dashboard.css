@@ -1,0 +1,52 @@
+.settings-dashboard { display: grid; gap: 26px; }
+.settings-dashboard-heading h1 { margin: 4px 0 8px; font-size: clamp(30px, 4vw, 42px); }
+.settings-dashboard-heading p:last-child { margin: 0; color: hsl(var(--muted-foreground)); }
+.settings-section-tabs { display: flex; width: max-content; max-width: 100%; gap: 4px; padding: 4px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--muted)); }
+.settings-section-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; border: 1px solid transparent; border-radius: 9px; padding: 0 14px; background: transparent; color: hsl(var(--muted-foreground)); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.settings-section-tab[aria-selected="true"] { border-color: hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: 0 1px 4px rgb(37 49 55 / 6%); }
+.settings-section-tab:focus-visible { outline: 3px solid hsl(var(--primary) / 25%); outline-offset: 2px; }
+.settings-history-count { display: grid; min-width: 19px; height: 19px; place-items: center; border-radius: 999px; background: hsl(var(--muted)); color: hsl(var(--foreground)); font-size: 10px; }
+.settings-history-panel { min-width: 0; }
+.settings-history-panel[hidden], .settings-dashboard-grid[hidden] { display: none; }
+.settings-dashboard-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; align-items: start; }
+.settings-card { min-width: 0; padding: 21px; border: 1px solid hsl(var(--border)); border-radius: 18px; background: hsl(var(--card)); box-shadow: 0 5px 18px rgb(37 49 55 / 3%); }
+.settings-reminder-card,.settings-account-card { grid-column: 1 / -1; }
+.settings-card-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.settings-card-heading > span { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid hsl(var(--border)); border-radius: 12px; color: hsl(var(--foreground)); }
+.settings-card-heading h2 { margin: 0; font-size: 16px; font-weight: 650; }
+.settings-card-heading p { margin: 4px 0 0; color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.45; }
+.settings-field { display: grid; gap: 7px; margin-top: 14px; color: hsl(var(--foreground)); font-size: 12px; font-weight: 600; }
+.settings-field input,.settings-field select { width: 100%; min-height: 42px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--background)); padding: 10px 12px; color: hsl(var(--foreground)); font: inherit; font-weight: 400; outline: none; }
+.settings-field input:focus,.settings-field select:focus { border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / 12%); }
+.settings-field input::placeholder { color: hsl(var(--muted-foreground)); opacity: 1; }
+.settings-field-pair { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.settings-helper,.settings-token-state { color: hsl(var(--muted-foreground)); font-size: 11px; line-height: 1.5; }
+.settings-helper { margin: 8px 0 0; }
+.settings-token-state { font-weight: 400; }
+.settings-reminder-callout { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--background)); color: hsl(var(--foreground)); }
+.settings-reminder-callout svg { flex: 0 0 auto; margin-top: 2px; color: hsl(var(--muted-foreground)); }
+.settings-reminder-callout p { margin: 0; color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.55; }
+.settings-switch { display: flex; align-items: center; gap: 11px; margin: 18px 0; cursor: pointer; }
+.settings-switch input { position: absolute; opacity: 0; }
+.settings-switch-track { position: relative; width: 36px; height: 21px; flex: 0 0 auto; border-radius: 999px; background: hsl(var(--border)); transition: background .15s ease; }
+.settings-switch-track::after { position: absolute; top: 3px; left: 3px; width: 15px; height: 15px; border-radius: 50%; background: white; content: ""; transition: transform .15s ease; box-shadow: 0 1px 2px rgb(0 0 0 / 12%); }
+.settings-switch input:checked + .settings-switch-track { background: hsl(var(--primary)); }
+.settings-switch input:checked + .settings-switch-track::after { transform: translateX(15px); }
+.settings-switch input:focus-visible + .settings-switch-track { outline: 3px solid hsl(var(--primary) / 25%); outline-offset: 2px; }
+.settings-switch > span:last-child { display: grid; gap: 3px; }
+.settings-switch b { font-size: 12px; font-weight: 600; }
+.settings-switch small { color: hsl(var(--muted-foreground)); font-size: 11px; }
+.settings-button-row { display: flex; flex-wrap: wrap; gap: 9px; }
+.settings-primary-button,.settings-secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border-radius: 10px; padding: 0 13px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.settings-primary-button { border: 1px solid hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.settings-secondary-button { border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); }
+.settings-primary-button:disabled,.settings-secondary-button:disabled { opacity: .5; cursor: not-allowed; }
+.settings-remove-token { margin-top: 10px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); padding: 6px 0; font: inherit; font-size: 11px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.settings-remove-token:disabled { opacity: .5; cursor: not-allowed; }
+.settings-success,.settings-error { margin: 12px 0 0; font-size: 12px; line-height: 1.5; }
+.settings-success { color: #2e6b4d; }
+.settings-error { color: #973130; }
+.settings-privacy { margin: 17px 0 0; padding-top: 14px; border-top: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); font-size: 11px; line-height: 1.6; }
+.settings-account-card .settings-secondary-button { margin-top: 12px; }
+@media (max-width: 720px) { .settings-dashboard-grid { grid-template-columns: 1fr; } .settings-reminder-card,.settings-account-card { grid-column: auto; } .settings-card { padding: 17px; } }
+@media (max-width: 460px) { .settings-field-pair { grid-template-columns: 1fr; gap: 0; } }
