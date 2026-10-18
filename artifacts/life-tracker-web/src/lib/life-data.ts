@@ -135,6 +135,26 @@ export type WeeklyReview = {
   snapshot: string;
 };
 
+export type SavedWord = {
+  id: string;
+  word: string;
+  partOfSpeech: string;
+  definition: string;
+  sentence: string;
+  conversation: [string, string];
+  week: string;
+  date: string;
+  savedAt: string;
+};
+
+export type DailySummary = {
+  id: string;
+  date: string;
+  createdAt: string;
+  summary: string;
+  snapshot: string;
+};
+
 export type Settings = {
   baseCurrency: Currency;
   monthlyIncomeTarget: number;
@@ -161,6 +181,8 @@ export type LifeData = {
   workouts: WorkoutEntry[];
   voiceNotes: VoiceNote[];
   weeklyReviews: WeeklyReview[];
+  savedWords: SavedWord[];
+  dailySummaries: DailySummary[];
   completionEvents: CompletionEvent[];
   studyCurriculumVersion: number;
   settings: Settings;
@@ -178,6 +200,8 @@ export const createDefaultLifeData = (): LifeData => ({
   workouts: [],
   voiceNotes: [],
   weeklyReviews: [],
+  savedWords: [],
+  dailySummaries: [],
   completionEvents: [],
   studyCurriculumVersion: STUDY_CURRICULUM_VERSION,
   settings: {
@@ -228,6 +252,29 @@ export function normalizeLifeData(value: unknown): LifeData {
           ),
         ];
 
+  const savedWords = Array.isArray(stored.savedWords)
+    ? stored.savedWords.filter((item): item is SavedWord =>
+        Boolean(item && typeof item === "object" &&
+          typeof item.id === "string" && typeof item.word === "string" &&
+          typeof item.partOfSpeech === "string" && typeof item.definition === "string" &&
+          typeof item.sentence === "string" && Array.isArray(item.conversation) &&
+          item.conversation.length === 2 && item.conversation.every((line) => typeof line === "string") &&
+          typeof item.week === "string" && typeof item.date === "string" &&
+          typeof item.savedAt === "string"),
+      )
+        .filter((item, index, all) =>
+          all.findIndex((other) => other.word.trim().toLocaleLowerCase() === item.word.trim().toLocaleLowerCase()) === index,
+        )
+    : [];
+  const dailySummaries = Array.isArray(stored.dailySummaries)
+    ? stored.dailySummaries.filter((item): item is DailySummary =>
+        Boolean(item && typeof item === "object" &&
+          typeof item.id === "string" && typeof item.date === "string" &&
+          typeof item.createdAt === "string" && typeof item.summary === "string" &&
+          typeof item.snapshot === "string"),
+      )
+    : [];
+
   return {
     ...defaults,
     ...stored,
@@ -242,6 +289,8 @@ export function normalizeLifeData(value: unknown): LifeData {
     workouts: Array.isArray(stored.workouts) ? stored.workouts : [],
     voiceNotes: Array.isArray(stored.voiceNotes) ? stored.voiceNotes : [],
     weeklyReviews: Array.isArray(stored.weeklyReviews) ? stored.weeklyReviews : [],
+    savedWords,
+    dailySummaries,
     completionEvents: Array.isArray(stored.completionEvents)
       ? stored.completionEvents
       : [],

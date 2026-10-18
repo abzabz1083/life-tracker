@@ -30,6 +30,7 @@ type FilterKey =
   | "library"
   | "notes"
   | "bills";
+type HistorySection = "reflections" | "days" | "words" | "activity";
 
 type TimelineItem = {
   id: string;
@@ -280,6 +281,7 @@ function getTimelineItems(data: LifeData): TimelineItem[] {
 
 export default function HistoryTab({ data }: Props) {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const [section, setSection] = useState<HistorySection>("reflections");
   const [query, setQuery] = useState("");
   const items = useMemo(() => getTimelineItems(data), [data]);
   const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -305,6 +307,12 @@ export default function HistoryTab({ data }: Props) {
         .toLocaleLowerCase()
         .includes(normalizedQuery)
   ));
+  const dailySummaries = [...data.dailySummaries].sort((a, b) => dateValue(b.createdAt) - dateValue(a.createdAt)).filter((item) =>
+    !normalizedQuery || `${item.date} ${item.summary} ${item.snapshot}`.toLocaleLowerCase().includes(normalizedQuery),
+  );
+  const savedWords = [...data.savedWords].sort((a, b) => dateValue(b.savedAt) - dateValue(a.savedAt)).filter((item) =>
+    !normalizedQuery || `${item.word} ${item.partOfSpeech} ${item.definition} ${item.sentence} ${item.conversation.join(" ")}`.toLocaleLowerCase().includes(normalizedQuery),
+  );
   const showBills = billsVisible && filteredBills.length > 0;
   const noResults = filteredItems.length === 0 && !showBills;
 
@@ -322,7 +330,18 @@ export default function HistoryTab({ data }: Props) {
         </div>
       </header>
 
-      <section className="history-reviews" aria-labelledby="history-reviews-title">
+      <div className="history-subtabs" role="tablist" aria-label="History categories">
+        {([
+          ["reflections", "Weekly reflections"],
+          ["days", "Daily summaries"],
+          ["words", `Words${data.savedWords.length ? ` · ${data.savedWords.length}` : ""}`],
+          ["activity", "All activity"],
+        ] as const).map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={section === key} data-testid={`history-section-${key}`} onClick={() => setSection(key)}>{label}</button>
+        ))}
+      </div>
+
+      {section === "reflections" && <section className="history-reviews" aria-labelledby="history-reviews-title">
         <div className="history-section-heading">
           <div>
             <p className="history-eyebrow">LOOKING BACK</p>
@@ -364,9 +383,19 @@ export default function HistoryTab({ data }: Props) {
             </div>
           </div>
         )}
-      </section>
+      </section>}
 
-      <section className="history-activity" aria-labelledby="history-activity-title">
+      {section === "days" && <section className="history-reviews" aria-labelledby="history-days-title">
+        <div className="history-section-heading"><div><p className="history-eyebrow">CLOSING THE DAY</p><h2 id="history-days-title">Daily summaries</h2><p className="history-section-subtitle">Saved locally, with the records used to write each reflection.</p></div><span className="history-count" data-testid="history-daily-count">{dailySummaries.length} saved</span></div>
+        {dailySummaries.length ? <div className="history-review-list">{dailySummaries.map((summary) => <article className="history-review" key={summary.id} data-testid={`history-daily-summary-${summary.id}`}><div className="history-review-mark"><NotebookPen size={17}/></div><div className="history-review-body"><div className="history-review-meta"><span className="history-review-range">{formatDate(summary.date, { weekday: "long", month: "short", day: "numeric", year: "numeric" })}</span><time dateTime={summary.createdAt}>Written {formatDate(summary.createdAt)}</time></div><p className="history-review-summary">{summary.summary}</p><details className="history-snapshot" data-testid={`history-snapshot-${summary.id}`}><summary>View the day’s snapshot</summary><pre>{summary.snapshot}</pre></details></div></article>)}</div> : <div className="history-review-empty" data-testid="history-daily-empty"><span className="history-empty-mark"><NotebookPen size={17}/></span><div><strong>{normalizedQuery ? "No saved daily summary matches this search." : "No daily summaries yet."}</strong><p>Daily reflections created during the 10 p.m.–2:59 a.m. window will be kept here.</p></div></div>}
+      </section>}
+
+      {section === "words" && <section className="history-reviews" aria-labelledby="history-words-title">
+        <div className="history-section-heading"><div><p className="history-eyebrow">WORDS TO KEEP</p><h2 id="history-words-title">Your saved vocabulary</h2><p className="history-section-subtitle">Examples and conversations saved from Word of the Week.</p></div><span className="history-count" data-testid="history-word-count">{savedWords.length} saved</span></div>
+        {savedWords.length ? <div className="history-word-list">{savedWords.map((word) => <article className="history-word-card" key={word.id} data-testid={`history-saved-word-${word.id}`}><div className="history-review-meta"><span className="history-review-range">{formatDate(word.date, { month: "short", day: "numeric", year: "numeric" })} · week of {word.week}</span><time dateTime={word.savedAt}>Saved {formatDate(word.savedAt)}</time></div><h3>{word.word} <small>{word.partOfSpeech}</small></h3><p>{word.definition}</p><blockquote>“{word.sentence}”</blockquote><div className="history-word-conversation"><span>A · {word.conversation[0]}</span><span>B · {word.conversation[1]}</span></div></article>)}</div> : <div className="history-review-empty" data-testid="history-words-empty"><span className="history-empty-mark"><BookOpen size={17}/></span><div><strong>{normalizedQuery ? "No saved word matches this search." : "Your vocabulary starts here."}</strong><p>Save a Word of the Week on Today and its full example will stay in this history.</p></div></div>}
+      </section>}
+
+      {section === "activity" && <section className="history-activity" aria-labelledby="history-activity-title">
         <div className="history-section-heading history-activity-heading">
           <div>
             <p className="history-eyebrow">THE DAY-TO-DAY</p>
@@ -510,7 +539,7 @@ export default function HistoryTab({ data }: Props) {
             </div>
           )}
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

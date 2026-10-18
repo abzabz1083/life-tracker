@@ -17,7 +17,7 @@ type Props = { data: LifeData; update: <K extends keyof LifeData>(key: K, value:
 type MacroFood = Pick<NutritionFood, "id" | "name" | "source" | "calories" | "protein" | "carbs" | "fat">;
 type LabelDraft = { name: string; servingGrams: number; calories: number; protein: number; carbs: number; fat: number; labelNotes: string };
 type SuggestedFood = { food: string; grams: number; reason: string; matches: MacroFood[]; selected?: MacroFood; loading: boolean; error?: string };
-type Tab = "food" | "training";
+type Tab = "food" | "training" | "history";
 const nowTime = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 const todayKey = () => dateKey();
 function parseFoodPhrase(value: string) {
@@ -88,7 +88,7 @@ function Field({ label, value, onChange, type = "text", placeholder, min, step, 
   return <label className="hd-field" htmlFor={id}><span>{label}</span><input id={id} type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} min={min} step={step}/></label>;
 }
 function Empty({ title, text }: { title: string; text: string }) {
-  return <div className="hd-empty"><span className="hd-empty-mark"><Activity size={17}/></span><strong>{title}</strong><p>{text}</p></div>;
+  return <div className="hd-empty"><span className="hd-empty-mark"><Activity size={17}/></span><strong>{title}</strong><p>{text}{text.toLocaleLowerCase().includes("enough logged data") ? "" : " There isn’t enough logged data yet."}</p></div>;
 }
 function ErrorNote({ children }: { children: React.ReactNode }) { return <p className="hd-error" role="alert">{children}</p>; }
 function macros(food: Pick<MacroFood, "calories" | "protein" | "carbs" | "fat">, grams: number) {
@@ -128,6 +128,59 @@ function formatTrend(history: WorkoutEntry[]) {
   if (last > first) return `You’ve added ${round1(last - first)} kg since your earliest recent session. Keep building at your own pace.`;
   if (last < first) return `Your recent logged weight is ${round1(first - last)} kg lighter. A useful snapshot—not a verdict on your progress.`;
   return "Your recent sessions are holding steady. Consistency is progress too.";
+}
+
+function HealthHistory({ data }: Props) {
+  const nutritionHistory = useMemo(() => {
+    const daily = new Map<string, { calories: number; protein: number; carbs: number; fat: number; meals: number }>();
+    data.meals.forEach((meal) => {
+      const day = daily.get(meal.date) ?? { calories: 0, protein: 0, carbs: 0, fat: 0, meals: 0 };
+      day.calories += meal.calories;
+      day.protein += meal.protein;
+      day.carbs += meal.carbs;
+      day.fat += meal.fat;
+      day.meals += 1;
+      daily.set(meal.date, day);
+    });
+    return [...daily.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-14);
+  }, [data.meals]);
+  const activityHistory = useMemo(() => {
+    const dates = new Set([
+      ...data.meals.map((item) => item.date),
+      ...data.workouts.map((item) => item.date),
+      ...data.dayChecks.map((item) => item.date),
+      ...data.tasks.map((item) => item.date),
+    ]);
+    return [...dates].sort((a, b) => b.localeCompare(a)).slice(0, 14);
+  }, [data.meals, data.workouts, data.dayChecks, data.tasks]);
+  const peakCalories = Math.max(1, ...nutritionHistory.map(([, values]) => values.calories));
+  const dateLabel = (value: string) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(`${value}T12:00:00`));
+  return <div className="hd-history-view">
+    <Panel>
+      <PanelHeading icon={<Activity size={16}/>} label="NUTRITION · RECORDED DAYS" title="Daily intake trend" aside={<span className="hd-count">{nutritionHistory.length} days</span>}/>
+      <p className="hd-copy">Calories and macros totalled from meals you actually logged. Days without food entries are not represented as zero.</p>
+      {nutritionHistory.length ? <>
+        <div className="hd-nutrition-chart" role="img" aria-label={`Calories on ${nutritionHistory.length} logged nutrition days`}>
+          {nutritionHistory.map(([date, values]) => <div className="hd-nutrition-bar-item" key={date} data-testid={`nutrition-history-day-${date}`}><span className="hd-nutrition-bar-value">{Math.round(values.calories).toLocaleString()}</span><div className="hd-nutrition-bar-track"><i style={{ height: `${Math.max(3, values.calories / peakCalories * 100)}%` }}/></div><time dateTime={date}>{dateLabel(date)}</time></div>)}
+        </div>
+        <div className="hd-history-table">
+          {nutritionHistory.slice().reverse().map(([date, values]) => <article key={date} className="hd-history-day" data-testid={`nutrition-history-row-${date}`}><div><strong>{dateLabel(date)}</strong><small>{values.meals} {values.meals === 1 ? "meal" : "meals"} logged</small></div><b>{Math.round(values.calories).toLocaleString()} <small>kcal</small></b><span>P {Math.round(values.protein)} g · C {Math.round(values.carbs)} g · F {Math.round(values.fat)} g</span></article>)}
+        </div>
+      </> : <Empty title="Nutrition history is waiting" text="There isn’t enough logged data yet. Log meals on a few days to see your daily trend."/>}
+    </Panel>
+    <Panel>
+      <PanelHeading icon={<Heart size={16}/>} label="DAILY RECORDS" title="Tasks, diet & gym" aside={<span className="hd-count">{activityHistory.length} days</span>}/>
+      <p className="hd-copy">A compact view of the days you have recorded. Unfinished tasks remain open; check-ins are shown only when logged.</p>
+      {activityHistory.length ? <div className="hd-history-table">{activityHistory.map((date) => {
+        const tasks = data.tasks.filter((item) => item.date === date);
+        const done = tasks.filter((item) => item.done).length;
+        const check = data.dayChecks.find((item) => item.date === date);
+        const workouts = data.workouts.filter((item) => item.date === date).length;
+        const meals = data.meals.filter((item) => item.date === date).length;
+        return <article className="hd-history-day hd-activity-history-day" key={date} data-testid={`health-history-indicators-${date}`}><div><strong>{dateLabel(date)}</strong><small>{meals ? `${meals} meal${meals === 1 ? "" : "s"}` : "No meals logged"}</small></div><span>Tasks · {tasks.length ? `${done}/${tasks.length} done · ${tasks.length - done} remaining` : "no tasks"}</span><span>Diet · {check?.diet === "good" ? "on track" : check?.diet === "off" ? "off track" : "not recorded"}</span><span>Gym · {check?.gym === "went" ? "went" : check?.gym === "missed" ? "missed" : "not recorded"}{workouts ? ` · ${workouts} workout${workouts === 1 ? "" : "s"}` : ""}</span></article>;
+      })}</div> : <Empty title="No daily indicators yet" text="There isn’t enough logged data yet. Tasks, diet and gym check-ins will appear here as you record them."/>}
+    </Panel>
+  </div>;
 }
 
 export function HealthDashboard({ data, update }: Props) {
@@ -518,6 +571,7 @@ export function HealthDashboard({ data, update }: Props) {
     <nav className="hd-tabs" aria-label="Health sections">
       <button type="button" className={tab === "food" ? "active" : ""} aria-current={tab === "food" ? "page" : undefined} onClick={() => setTab("food")}><Utensils size={16}/> Food & nutrition</button>
       <button type="button" className={tab === "training" ? "active" : ""} aria-current={tab === "training" ? "page" : undefined} onClick={() => setTab("training")}><Dumbbell size={16}/> Training</button>
+      <button type="button" className={tab === "history" ? "active" : ""} aria-current={tab === "history" ? "page" : undefined} data-testid="health-tab-history" onClick={() => setTab("history")}><Activity size={16}/> History & trends</button>
     </nav>
 
     {tab === "food" ? <div className="hd-food-view">
@@ -598,7 +652,7 @@ export function HealthDashboard({ data, update }: Props) {
         {helperError && <ErrorNote>{helperError}</ErrorNote>}
          {suggestions.length > 0 && <div className="hd-suggestions"><div className="hd-suggestion-heading"><b>{mealPlanTitle || "Verify each ingredient"}</b><span>{mealPlanNote || "Choose the closest database match."}</span></div>{suggestions.map((item, index) => <div className="hd-suggestion" key={`${index}-${item.food}`}><div className="hd-suggestion-name"><b>{item.food}</b><span>{item.grams} g suggested · {item.reason}</span></div><div className="hd-verify-row"><input aria-label={`Search match for ${item.food}`} defaultValue={item.food} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void verifySuggestion(index, event.currentTarget.value); } }}/><button className="hd-secondary" type="button" disabled={item.loading} onClick={event => { const input = event.currentTarget.previousElementSibling as HTMLInputElement; void verifySuggestion(index, input.value); }}>{item.loading ? <LoaderCircle size={14} className="hd-spin"/> : <Search size={14}/>}Verify</button></div>{item.error && <ErrorNote>{item.error}</ErrorNote>}{item.matches.length > 0 && <label className="hd-select-match"><span>Database match</span><select value={item.selected?.id ?? ""} onChange={event => setSuggestions(current => current.map((entry, i) => i === index ? { ...entry, selected: entry.matches.find(match => match.id === event.target.value) } : entry))}><option value="">Choose a food to confirm</option>{item.matches.map(match => <option value={match.id} key={match.id}>{match.name} · {match.source}</option>)}</select></label>}{item.selected && <small className="hd-verified-macros">At {item.grams} g: {macros(item.selected, item.grams).calories} kcal · P {macros(item.selected, item.grams).protein} · C {macros(item.selected, item.grams).carbs} · F {macros(item.selected, item.grams).fat} g</small>}</div>)}<div className="hd-action-row"><button className="hd-primary" type="button" disabled={!suggestions.some(item => item.selected)} onClick={logPlan}><Check size={15}/>Log verified items</button><button className="hd-secondary" type="button" onClick={() => setSuggestions([])}>Dismiss</button></div></div>}
       </Panel>
-    </div> : <div className="hd-training-view">
+    </div> : tab === "training" ? <div className="hd-training-view">
       <Panel className="hd-workout-form">
         <PanelHeading icon={<Dumbbell size={16}/>} label="STRENGTH NOTES" title="Log a workout"/>
         <p className="hd-copy">Save a set, track load over time, and keep the equipment note if it helps.</p>
@@ -621,7 +675,7 @@ export function HealthDashboard({ data, update }: Props) {
         </Panel>
         {data.workouts.some(item => item.photoKey) && <Panel><PanelHeading icon={<Camera size={16}/>} title="Equipment notes"/><div className="hd-equipment-gallery">{data.workouts.filter(item => item.photoKey).map(item => <figure key={item.id}>{workoutPhotoUrls[item.photoKey!] ? <img src={workoutPhotoUrls[item.photoKey!]} alt={`${item.exercise} equipment`}/> : <span><Camera size={17}/></span>}<figcaption>{item.exercise}<small>{item.date}</small></figcaption></figure>)}</div></Panel>}
       </div>
-    </div>}
+    </div> : <HealthHistory data={data} update={update}/>}
   </main>;
 }
 

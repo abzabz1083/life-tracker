@@ -1,0 +1,20 @@
+.daily-reflection-panel {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px 22px;
+  background: #f2f1e9;
+}
+.daily-reflection-heading { display: flex; align-items: flex-start; gap: 12px; }
+.daily-reflection-heading h2 { margin: 3px 0 5px; color: #35434a; font-family: var(--app-font-serif); font-size: 17px; }
+.daily-reflection-heading p { margin: 0; color: #79847f; font-size: 10px; line-height: 1.5; }
+.daily-reflection-panel > .button { min-width: 190px; }
+.daily-reflection-panel > .form-error { grid-column: 1 / -1; }
+.daily-reflection-panel .review-result { grid-column: 1 / -1; margin-top: 0; }
+.daily-reflection-panel .review-saved-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.daily-reflection-panel .review-saved-heading .text-link { margin: 0; }
+@media (max-width: 767px) {
+  .daily-reflection-panel { grid-template-columns: 1fr; }
+  .daily-reflection-panel > .button { width: 100%; }
+}

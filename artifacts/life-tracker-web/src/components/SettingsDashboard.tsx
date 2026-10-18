@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Activity,
+  BookOpen,
   Check,
   Clock3,
   History,
@@ -225,9 +226,9 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
           onClick={() => setActiveTab("history")}
         >
           <History size={15} /> History
-          {data.weeklyReviews.length > 0 && (
+          {data.weeklyReviews.length + data.dailySummaries.length + data.savedWords.length > 0 && (
             <span className="settings-history-count" data-testid="settings-history-review-badge">
-              {data.weeklyReviews.length}
+              {data.weeklyReviews.length + data.dailySummaries.length + data.savedWords.length}
             </span>
           )}
         </button>
@@ -291,6 +292,19 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
             />
           </label>
           {currencyError && <p className="settings-error" role="alert">{currencyError}</p>}
+        </section>
+
+        <section className="settings-card settings-words-card" data-testid="settings-saved-words">
+          <div className="settings-card-heading">
+            <span><BookOpen size={18} /></span>
+            <div><h2>Words</h2><p>Keep useful vocabulary and revisit the complete examples.</p></div>
+          </div>
+          {data.savedWords.length ? <div className="settings-word-list">{[...data.savedWords].sort((a, b) => b.savedAt.localeCompare(a.savedAt)).map((word) => (
+            <article className="settings-word-entry" key={word.id} data-testid={`settings-word-${word.id}`}>
+              <div><h3>{word.word} <small>{word.partOfSpeech}</small></h3><p>{word.definition}</p><blockquote>“{word.sentence}”</blockquote><small>A · {word.conversation[0]}<br/>B · {word.conversation[1]}</small><time dateTime={word.savedAt}>Saved {Number.isFinite(new Date(word.savedAt).getTime()) ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(word.savedAt)) : "date not recorded"}</time></div>
+              <button className="settings-word-remove" type="button" data-testid={`remove-saved-word-${word.id}`} aria-label={`Remove ${word.word} from saved words`} onClick={() => { if (window.confirm(`Remove “${word.word}” from your saved words?`)) update("savedWords", data.savedWords.filter((item) => item.id !== word.id)); }}>Remove</button>
+            </article>
+          ))}</div> : <div className="settings-words-empty" data-testid="settings-words-empty"><strong>No words saved yet.</strong><p>Save the Word of the Week on Today to build a personal vocabulary collection.</p></div>}
         </section>
 
         <section className="settings-card">
