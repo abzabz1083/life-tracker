@@ -65,9 +65,7 @@ export function hasValidPasscodeSession(request: Request): boolean {
 }
 
 function setSessionCookie(request: Request, value: string, maxAge: number): string {
-  const forwardedProtocol = request.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const secure = process.env.NODE_ENV === "production" || forwardedProtocol === "https";
-  return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? "; Secure" : ""}`;
+  return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; SameSite=None; Max-Age=${maxAge}; Secure`;
 }
 
 function attemptKey(request: Request): string {
@@ -123,6 +121,7 @@ export function clearPasscodeSession(request: Request): string {
 }
 
 export const requirePasscodeSession: RequestHandler = (request, response, next) => {
+  response.setHeader("Cache-Control", "no-store");
   if (!passcodeAuthConfigured()) {
     response.status(503).json({ error: "Passcode access is not configured." });
     return;

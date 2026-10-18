@@ -40,6 +40,7 @@ async function carryForwardSingleReminderConfig(): Promise<void> {
 }
 
 router.get("/auth/session", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   const configured = passcodeAuthConfigured();
   res.json(GetLifeTrackerSessionResponse.parse({
     configured,
@@ -48,6 +49,7 @@ router.get("/auth/session", (req, res) => {
 });
 
 router.post("/auth/passcode", async (req, res): Promise<void> => {
+  res.setHeader("Cache-Control", "no-store");
   if (!passcodeAuthConfigured()) {
     res.status(503).json({ error: "Passcode access is not configured." });
     return;
@@ -82,6 +84,7 @@ router.post("/auth/passcode", async (req, res): Promise<void> => {
 });
 
 router.post("/auth/logout", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   res.setHeader("Set-Cookie", clearPasscodeSession(req));
   res.status(204).end();
 });
