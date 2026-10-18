@@ -41,6 +41,10 @@ async function carryForwardSingleReminderConfig(): Promise<void> {
 
 router.get("/auth/session", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
+  // Express can still turn a conditional GET into a bodyless 304; the client
+  // needs the session JSON on every check, especially after an iframe reload.
+  delete req.headers["if-none-match"];
+  delete req.headers["if-modified-since"];
   const configured = passcodeAuthConfigured();
   res.json(GetLifeTrackerSessionResponse.parse({
     configured,
@@ -79,13 +83,18 @@ router.post("/auth/passcode", async (req, res): Promise<void> => {
   } catch {
     req.log.warn("Could not carry forward the existing reminder settings.");
   }
-  res.setHeader("Set-Cookie", issuePasscodeSession(req));
-  res.json(UnlockLifeTrackerResponse.parse({ configured: true, authenticated: true }));
+  const session = issuePasscodeSession();
+  res.setHeader("Set-Cookie", session.cookie);
+  res.json(UnlockLifeTrackerResponse.parse({
+    configured: true,
+    authenticated: true,
+    sessionToken: session.token,
+  }));
 });
 
 router.post("/auth/logout", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader("Set-Cookie", clearPasscodeSession(req));
+  res.setHeader("Set-Cookie", clearPasscodeSession());
   res.status(204).end();
 });
 

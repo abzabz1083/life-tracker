@@ -9,4 +9,6 @@
 export interface LifeTrackerSession {
   authenticated: boolean;
   configured: boolean;
+  /** Short-lived browser-session fallback for embedded previews. */
+  sessionToken?: string;
 }

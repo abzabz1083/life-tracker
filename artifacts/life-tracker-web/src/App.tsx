@@ -16,6 +16,7 @@ import type { LifeVoiceCommand, NutritionFood } from '@workspace/api-client-reac
 import { HealthDashboard } from '@/components/HealthDashboard';
 import { SettingsDashboard } from '@/components/SettingsDashboard';
 import { StudyDashboard } from '@/components/StudyDashboard';
+import { getWordOfWeek } from '@/lib/word-of-week';
 import {
   createDefaultLifeData,
   dateKey,
@@ -36,6 +37,7 @@ import {
 import './index.css';
 import './auth.css';
 import './weekly-review.css';
+import './word-of-week.css';
 import '@/components/completion-times.css';
 
 const STORE='life-tracker-web-v1';
@@ -158,6 +160,28 @@ function SettingsPage({data,update}:{data:LifeData;update:<K extends keyof LifeD
  const test=async()=>{setMessage('');setError('');if(!token.trim()||!data.settings.telegramChatId.trim()){setError('Enter both your bot token and chat ID before testing.');return}try{const result=await send.mutateAsync({data:{token:token.trim(),chatId:data.settings.telegramChatId.trim()}});if(result.sent)setMessage('Test message sent. Telegram is connected.');else setError(result.error||'Telegram did not accept the test message.')}catch(e){setError(e instanceof Error?e.message:'Telegram connection failed. Check the token and chat ID.')}}
  return <><TopHeading eyebrow="Personal preferences" title="Make it yours." subtitle="Set the targets and reminders that make this space feel personal."/><div className="settings-layout"><Panel><div className="setting-icon"><Wallet size={18}/></div><PanelTitle>Money preferences</PanelTitle><label className="field"><span>Main currency</span><select data-testid="setting-currency" value={data.settings.baseCurrency} disabled={changingCurrency} onChange={e=>void changeBaseCurrency(e.target.value as Currency)}>{currencies.map(c=><option key={c}>{c}</option>)}</select></label><p className="quiet-note">New amounts use this currency. Changing it revalues existing totals at the current exchange rate.</p>{currencyError&&<p className="form-error" data-testid="currency-error">{currencyError}</p>}<Field label={`Monthly income target (${data.settings.baseCurrency})`} value={data.settings.monthlyIncomeTarget||''} onChange={v=>change('monthlyIncomeTarget',Number(v)||0)} placeholder="Set a monthly target" type="number" testId="setting-income-target"/><Field label={`Monthly spending budget (${data.settings.baseCurrency})`} value={data.settings.monthlySpendingBudget||''} onChange={v=>change('monthlySpendingBudget',Number(v)||0)} placeholder="Set a comfortable limit" type="number" testId="setting-spending-budget"/></Panel><Panel><div className="setting-icon"><Heart size={18}/></div><PanelTitle>Nutrition & check-ins</PanelTitle><Field label="Daily calorie target" value={data.settings.calorieTarget} onChange={v=>change('calorieTarget',Number(v)||0)} type="number" testId="setting-calorie-target"/><Field label="Daily protein target (g)" value={data.settings.proteinTarget} onChange={v=>change('proteinTarget',Number(v)||0)} type="number" testId="setting-protein-target"/><div className="form-split"><Field label="Meal check-in time" value={data.settings.mealPrompt} onChange={v=>change('mealPrompt',v)} type="time" testId="setting-meal-prompt"/><Field label="Workout check-in time" value={data.settings.workoutPrompt} onChange={v=>change('workoutPrompt',v)} type="time" testId="setting-workout-prompt"/></div><p className="quiet-note">These times are saved as personal preferences and used as suggested log times.</p></Panel><Panel className="telegram-panel"><div className="setting-icon"><Activity size={18}/></div><PanelTitle>Telegram connection</PanelTitle><p className="panel-copy">Send a one-time test message to check your bot setup. Create a bot with Telegram’s BotFather, then add its token and your chat ID.</p><Field label="Bot API token" value={token} onChange={setToken} placeholder="Token stays in memory only" type={show?'text':'password'} testId="telegram-token"/><button className="plain-link" data-testid="toggle-token-visibility" onClick={()=>setShow(v=>!v)}>{show?'Hide token':'Show token'}</button><Field label="Telegram chat ID" value={data.settings.telegramChatId} onChange={v=>change('telegramChatId',v)} placeholder="Your personal or group chat ID" testId="telegram-chat-id"/><Button testId="test-telegram" onClick={()=>void test()} disabled={send.isPending||!token.trim()||!data.settings.telegramChatId.trim()}>{send.isPending?<LoaderCircle className="spin" size={16}/>:<ArrowUpRight size={16}/>}Send test message</Button>{message&&<p className="success-note" data-testid="telegram-status">{message}</p>}{error&&<p className="form-error" data-testid="telegram-error">{error}</p>}<div className="privacy-callout"><CheckCircle2 size={16}/><p>Your bot token is never written to local storage. It stays in this page’s memory and is sent to the test endpoint only when you ask to send a message.</p></div></Panel><Panel className="privacy-panel"><div className="setting-icon"><Settings2 size={18}/></div><PanelTitle>Data & privacy</PanelTitle><p>Your tasks, money, meals, workouts, notes and modules are stored in this browser. Workout photos are kept in IndexedDB on this device.</p><p>Voice transcription, exercise photo identification and AI reviews send only the recording, image or summary you request to the service. Nutrition search uses USDA FoodData Central and Open Food Facts; check labels when precision matters.</p><div className="storage-badge"><span className="service-dot online"/>Local-first by design</div></Panel></div></>
 }
+function WordOfWeekPanel(){
+ const word=getWordOfWeek();
+ return <Panel className="word-of-week-panel">
+  <div className="word-week-intro">
+   <span className="eyebrow">WORD OF THE WEEK</span>
+   <h2 className="serif word-week-title">{word.word}</h2>
+   <p className="word-week-part">{word.partOfSpeech}</p>
+   <p className="word-week-definition">{word.definition}</p>
+  </div>
+  <div className="word-week-examples">
+   <div className="word-week-example">
+    <span className="word-week-example-label">IN A SENTENCE</span>
+    <p>“{word.sentence}”</p>
+   </div>
+   <div className="word-week-example">
+    <span className="word-week-example-label">IN CONVERSATION</span>
+    <p><span className="word-week-speaker">A:</span> {word.conversation[0]}</p>
+    <p><span className="word-week-speaker">B:</span> {word.conversation[1]}</p>
+   </div>
+  </div>
+ </Panel>
+}
 function NotFound(){return <div className="not-found"><span className="eyebrow">PAGE NOT FOUND</span><h1 className="serif">Let’s find your way back.</h1><Link href="/user-portal" className="button"><Home size={16}/>Return to today</Link></div>}
 const queryClient=new QueryClient();
 function TrackerRouter({onSignOut}:{onSignOut:()=>Promise<void>}){
@@ -178,7 +202,7 @@ function TrackerRouter({onSignOut}:{onSignOut:()=>Promise<void>}){
   :route==='/health'?<HealthDashboard data={data} update={update}/>
    :route==='/settings'?<SettingsDashboard data={data} update={update} onSignOut={onSignOut}/>
   :<NotFound/>;
- return <AppShell>{!ready?<div className="loading-surface"><div className="skeleton skeleton-heading"/><div className="skeleton-grid"><div className="skeleton"/><div className="skeleton"/></div></div>:page}</AppShell>
+ return <AppShell>{!ready?<div className="loading-surface"><div className="skeleton skeleton-heading"/><div className="skeleton-grid"><div className="skeleton"/><div className="skeleton"/></div></div>:<>{page}{route==='/'&&<WordOfWeekPanel/>}</>}</AppShell>
 }
 function AuthLoading(){return <div className="auth-loading" role="status">Opening your private tracker…</div>}
 
@@ -276,7 +300,10 @@ function AuthGate(){
   setLoginError('');
   try{
    const result=await unlock.mutateAsync({data:{passcode}});
-   queryClient.setQueryData(getGetLifeTrackerSessionQueryKey(),result);
+    queryClient.setQueryData(getGetLifeTrackerSessionQueryKey(),{
+     configured:result.configured,
+     authenticated:result.authenticated,
+    });
   }catch(error){
    const status=authErrorStatus(error);
    setLoginError(status===401?'That passcode was not accepted.'

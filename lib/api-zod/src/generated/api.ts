@@ -22,7 +22,8 @@ export const HealthCheckResponse = zod.object({
  */
 export const GetLifeTrackerSessionResponse = zod.object({
   "authenticated": zod.boolean(),
-  "configured": zod.boolean()
+  "configured": zod.boolean(),
+  "sessionToken": zod.string().optional().describe('Short-lived browser-session fallback for embedded previews.')
 })
 
 
@@ -40,7 +41,8 @@ export const UnlockLifeTrackerBody = zod.object({
 
 export const UnlockLifeTrackerResponse = zod.object({
   "authenticated": zod.boolean(),
-  "configured": zod.boolean()
+  "configured": zod.boolean(),
+  "sessionToken": zod.string().optional().describe('Short-lived browser-session fallback for embedded previews.')
 })
 
 

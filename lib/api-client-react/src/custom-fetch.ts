@@ -17,6 +17,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+const PASSCODE_SESSION_STORAGE_KEY = "life-tracker-session-token";
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -37,8 +38,8 @@ export function setBaseUrl(url: string | null): void {
  * Useful for Expo bundles making token-gated API calls.
  * Pass `null` to clear the getter.
  *
- * NOTE: This function should never be used in web applications where session
- * token cookies are automatically associated with API calls by the browser.
+ * NOTE: Prefer the passcode session flow in the Life Tracker web app. This
+ * getter is intended for clients with a separate bearer-token provider.
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
@@ -76,6 +77,36 @@ function resolveUrl(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (isUrl(input)) return input.toString();
   return input.url;
+}
+
+function sameOriginApiPath(url: string): string | null {
+  if (typeof window === "undefined" || typeof document === "undefined") return null;
+  try {
+    const parsed = new URL(url, window.location.href);
+    return parsed.origin === window.location.origin && parsed.pathname.startsWith("/api/")
+      ? parsed.pathname
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function getBrowserPasscodeToken(): string | null {
+  if (typeof window === "undefined" || typeof document === "undefined") return null;
+  try {
+    return window.sessionStorage.getItem(PASSCODE_SESSION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function clearBrowserPasscodeToken(): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(PASSCODE_SESSION_STORAGE_KEY);
+  } catch {
+    // The HttpOnly cookie remains available when sessionStorage is unavailable.
+  }
 }
 
 function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
@@ -336,6 +367,8 @@ export async function customFetch<T = unknown>(
   }
 
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+  const requestUrl = resolveUrl(input);
+  const apiPath = sameOriginApiPath(requestUrl);
 
   if (
     typeof init.body === "string" &&
@@ -351,14 +384,15 @@ export async function customFetch<T = unknown>(
 
   // Attach bearer token when an auth getter is configured and no
   // Authorization header has been explicitly provided.
-  if (_authTokenGetter && !headers.has("authorization")) {
-    const token = await _authTokenGetter();
+  if (!headers.has("authorization")) {
+    let token = _authTokenGetter ? await _authTokenGetter() : null;
+    if (!token && apiPath) token = getBrowserPasscodeToken();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
     }
   }
 
-  const requestInfo = { method, url: resolveUrl(input) };
+  const requestInfo = { method, url: requestUrl };
 
   const fetchOptions: RequestInit = { ...init, method, headers };
   if (typeof document !== "undefined") {
@@ -366,8 +400,22 @@ export async function customFetch<T = unknown>(
   }
   const response = await fetch(input, fetchOptions);
 
+  if (response.ok && apiPath?.endsWith("/auth/passcode")) {
+    try {
+      const body = (await response.clone().json()) as { sessionToken?: unknown };
+      if (typeof body.sessionToken === "string" && body.sessionToken.length > 0) {
+        window.sessionStorage.setItem(PASSCODE_SESSION_STORAGE_KEY, body.sessionToken);
+      }
+    } catch {
+      // Keep cookie-based auth available if this response has no token body.
+    }
+  } else if (response.ok && apiPath?.endsWith("/auth/logout")) {
+    clearBrowserPasscodeToken();
+  }
+
   if (!response.ok) {
     if (response.status === 401 && typeof window !== "undefined" && typeof document !== "undefined") {
+      if (apiPath) clearBrowserPasscodeToken();
       window.dispatchEvent(new Event("life-tracker-auth-expired"));
     }
     const errorData = await parseErrorBody(response, method);

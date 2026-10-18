@@ -24,6 +24,13 @@ function readSessionCookie(request: Request): string | null {
   return null;
 }
 
+function readBearerToken(request: Request): string | null {
+  const authorization = request.get("authorization");
+  if (!authorization) return null;
+  const match = /^Bearer\s+(.+)$/i.exec(authorization);
+  return match?.[1]?.trim() || null;
+}
+
 function createSessionToken(): string {
   const payload = Buffer.from(JSON.stringify({
     sub: PASSCODE_OWNER_ID,
@@ -35,10 +42,7 @@ function createSessionToken(): string {
   return `${payload}.${signature}`;
 }
 
-export function hasValidPasscodeSession(request: Request): boolean {
-  if (!passcodeAuthConfigured()) return false;
-  const token = readSessionCookie(request);
-  if (!token) return false;
+function isValidSessionToken(token: string): boolean {
   const separator = token.lastIndexOf(".");
   if (separator < 1) return false;
   const payload = token.slice(0, separator);
@@ -64,7 +68,13 @@ export function hasValidPasscodeSession(request: Request): boolean {
   }
 }
 
-function setSessionCookie(request: Request, value: string, maxAge: number): string {
+export function hasValidPasscodeSession(request: Request): boolean {
+  if (!passcodeAuthConfigured()) return false;
+  const tokens = [readSessionCookie(request), readBearerToken(request)];
+  return tokens.some((token) => Boolean(token && isValidSessionToken(token)));
+}
+
+function setSessionCookie(value: string, maxAge: number): string {
   return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; SameSite=None; Max-Age=${maxAge}; Secure`;
 }
 
@@ -111,13 +121,16 @@ export function passcodeMatches(supplied: string): boolean {
   return timingSafeEqual(suppliedHash, expectedHash);
 }
 
-export function issuePasscodeSession(request: Request): string {
+export function issuePasscodeSession(): { cookie: string; token: string } {
   const token = createSessionToken();
-  return setSessionCookie(request, token, SESSION_LIFETIME_SECONDS);
+  return {
+    cookie: setSessionCookie(token, SESSION_LIFETIME_SECONDS),
+    token,
+  };
 }
 
-export function clearPasscodeSession(request: Request): string {
-  return setSessionCookie(request, "", 0);
+export function clearPasscodeSession(): string {
+  return setSessionCookie("", 0);
 }
 
 export const requirePasscodeSession: RequestHandler = (request, response, next) => {

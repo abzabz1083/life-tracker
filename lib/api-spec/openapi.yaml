@@ -375,6 +375,9 @@ components:
           type: boolean
         configured:
           type: boolean
+        sessionToken:
+          type: string
+          description: Short-lived browser-session fallback for embedded previews.
       required: [authenticated, configured]
     HealthStatus:
       type: object
