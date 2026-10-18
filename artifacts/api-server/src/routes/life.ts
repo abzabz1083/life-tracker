@@ -3,7 +3,11 @@ import { Router, type IRouter, type RequestHandler, type Response } from "expres
 import {
   CreateLifeMealPlanBody,
   CreateLifeInsightBody,
+  EstimateLifeNutritionBody,
+  EstimateLifeNutritionResponse,
   IdentifyExerciseMachineBody,
+  ParseLifeVoiceCommandBody,
+  ParseLifeVoiceCommandResponse,
   ReadLifeNutritionLabelBody,
   SyncLifeReminderSnapshotBody,
   TranscribeLifeVoiceNoteBody,
@@ -401,6 +405,142 @@ router.get("/life/nutrition-search", async (req, res) => {
   }
   nutritionCache.set(cacheKey, { items: [], expiresAt: Date.now() + 5 * 60_000 });
   res.json([]);
+});
+
+router.post("/life/voice-command", aiRateLimit, async (req, res): Promise<void> => {
+  const parsed = ParseLifeVoiceCommandBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Record a short voice note before asking AI to interpret it." });
+    return;
+  }
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-haiku-5-5",
+      max_tokens: 8192,
+      system: [
+        "Interpret a personal tracker voice note. Return only one JSON object with action, title, and only applicable optional fields: targetTitle, amount, currency, category, foodName, grams, clarification.",
+        "Allowed actions: add_task, complete_task, income, expense, meal, unknown.",
+        "Never invent a task name, amount, currency, food, quantity, or category. Include amount/currency only when explicitly spoken. Supported currencies are GBP, USD, AED, EUR; if another currency is spoken, use unknown and explain in clarification.",
+        "For completing a task, put the spoken task name in targetTitle. For a new task, put its concise title in title.",
+        "For income or expense, amount must be positive and title should describe the source or purchase.",
+        "For a meal, extract foodName and grams. In this voice-capture context, a bare food plus a weight such as 'white rice 100 grams' means a meal entry. Do not infer the weight if absent.",
+        "If the action or required details are unclear, use unknown and briefly say what needs clarification. Use an empty title when there is no useful title.",
+        "Return JSON only; no markdown or extra text.",
+      ].join(" "),
+      messages: [{ role: "user", content: parsed.data.transcript }],
+    });
+    const text = response.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text)
+      .join("\n");
+    const raw = modelJson(text);
+    if (!isRecord(raw)) {
+      res.status(502).json({ error: "The voice note could not be interpreted. Try saying the action and its details more clearly." });
+      return;
+    }
+
+    const actions = ["add_task", "complete_task", "income", "expense", "meal", "unknown"] as const;
+    const action = actions.includes(raw.action as (typeof actions)[number])
+      ? (raw.action as (typeof actions)[number])
+      : "unknown";
+    const title = typeof raw.title === "string" ? raw.title.trim().slice(0, 200) : "";
+    const targetTitle = typeof raw.targetTitle === "string" ? raw.targetTitle.trim().slice(0, 200) : "";
+    const foodName = typeof raw.foodName === "string" ? raw.foodName.trim().slice(0, 120) : "";
+    const category = typeof raw.category === "string" ? raw.category.trim().slice(0, 80) : "";
+    const clarification = typeof raw.clarification === "string" ? raw.clarification.trim().slice(0, 240) : "";
+    const amount = typeof raw.amount === "number" && Number.isFinite(raw.amount) && raw.amount > 0
+      ? raw.amount
+      : undefined;
+    const grams = typeof raw.grams === "number" && Number.isFinite(raw.grams) && raw.grams > 0 && raw.grams <= 2000
+      ? raw.grams
+      : undefined;
+    const currencies = ["GBP", "USD", "AED", "EUR"] as const;
+    const currency = currencies.includes(raw.currency as (typeof currencies)[number])
+      ? (raw.currency as (typeof currencies)[number])
+      : undefined;
+
+    let safeAction = action;
+    let safeClarification = clarification;
+    if (action === "add_task" && !title) {
+      safeAction = "unknown";
+      safeClarification = "I couldn't identify the task name.";
+    } else if (action === "complete_task" && !targetTitle && !title) {
+      safeAction = "unknown";
+      safeClarification = "Say which task you completed.";
+    } else if ((action === "income" || action === "expense") && (!amount || !title)) {
+      safeAction = "unknown";
+      safeClarification = "Say the amount and what the income or expense was for.";
+    } else if (action === "meal" && (!foodName || !grams)) {
+      safeAction = "unknown";
+      safeClarification = "Say the food and its amount in grams.";
+    } else if ((raw.currency && !currency) && (action === "income" || action === "expense")) {
+      safeAction = "unknown";
+      safeClarification = "That currency is not configured in the tracker yet.";
+    }
+
+    const result = ParseLifeVoiceCommandResponse.parse({
+      action: safeAction,
+      title,
+      ...(targetTitle && { targetTitle }),
+      ...(amount && { amount }),
+      ...(currency && { currency }),
+      ...(category && { category }),
+      ...(foodName && { foodName }),
+      ...(grams && { grams }),
+      ...(safeClarification && { clarification: safeClarification }),
+    });
+    res.json(result);
+  } catch {
+    req.log.error("Unable to interpret life tracker voice command");
+    res.status(502).json({ error: "AI could not interpret this voice note. You can still keep the transcript and enter it manually." });
+  }
+});
+
+router.post("/life/nutrition-estimate", aiRateLimit, async (req, res): Promise<void> => {
+  const parsed = EstimateLifeNutritionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Enter a food name to estimate." });
+    return;
+  }
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-haiku-5-5",
+      max_tokens: 8192,
+      system: [
+        "Estimate typical nutrition for a common food using general knowledge only. You do not have live web or database access, so never claim this is exact or verified.",
+        "Return only JSON with name, calories, protein, carbs, and fat, all per 100 grams. Use calories in kcal and macros in grams.",
+        "If raw/dry versus cooked state is ambiguous, use the common ready-to-eat cooked form and make that assumption clear in name. Keep values nonnegative and plausible.",
+        "Do not estimate a branded packaged food; use conservative typical values and indicate uncertainty in the name.",
+      ].join(" "),
+      messages: [{ role: "user", content: parsed.data.food }],
+    });
+    const text = response.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text)
+      .join("\n");
+    const raw = modelJson(text);
+    if (!isRecord(raw)) {
+      res.status(502).json({ error: "Claude could not estimate that food. Try a simpler food name or use the packet label." });
+      return;
+    }
+    const responseFood = EstimateLifeNutritionResponse.parse({
+      id: `claude-${parsed.data.food.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80)}`,
+      name: typeof raw.name === "string" && raw.name.trim()
+        ? raw.name.trim().slice(0, 200)
+        : `${parsed.data.food} (AI estimate)`,
+      source: "Claude estimate",
+      calories: raw.calories,
+      protein: raw.protein,
+      carbs: raw.carbs,
+      fat: raw.fat,
+    });
+    res.json(responseFood);
+  } catch {
+    req.log.error("Unable to estimate nutrition with Claude");
+    res.status(502).json({ error: "Claude could not estimate nutrition right now. Enter values from the label or try again." });
+  }
 });
 
 router.post("/life/meal-plan", aiRateLimit, async (req, res) => {

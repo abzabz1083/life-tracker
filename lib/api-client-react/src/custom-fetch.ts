@@ -360,9 +360,16 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const fetchOptions: RequestInit = { ...init, method, headers };
+  if (typeof document !== "undefined") {
+    fetchOptions.credentials = init.credentials ?? "include";
+  }
+  const response = await fetch(input, fetchOptions);
 
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined" && typeof document !== "undefined") {
+      window.dispatchEvent(new Event("life-tracker-auth-expired"));
+    }
     const errorData = await parseErrorBody(response, method);
     throw new ApiError(response, errorData, requestInfo);
   }

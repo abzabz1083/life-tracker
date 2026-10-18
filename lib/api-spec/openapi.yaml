@@ -126,6 +126,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LifeTranscription"
+  /life/voice-command:
+    post:
+      operationId: parseLifeVoiceCommand
+      tags: [life]
+      summary: Interpret a spoken tracker action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifeVoiceCommandInput"
+      responses:
+        "200":
+          description: Parsed tracker action for user confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifeVoiceCommand"
+        "400":
+          description: Transcript is invalid
+        "502":
+          description: The voice action could not be understood
   /life/identify-exercise:
     post:
       operationId: identifyExerciseMachine
@@ -194,6 +216,28 @@ paths:
           description: Search term is too short
         "503":
           description: Nutrition providers are temporarily unavailable
+  /life/nutrition-estimate:
+    post:
+      operationId: estimateLifeNutrition
+      tags: [life]
+      summary: Estimate nutrition for a common food with Claude
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NutritionEstimateInput"
+      responses:
+        "200":
+          description: Clearly labeled AI estimate per 100 grams
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionFood"
+        "400":
+          description: Food description is invalid
+        "502":
+          description: An estimate could not be generated
   /life/meal-plan:
     post:
       operationId: createLifeMealPlan
@@ -372,6 +416,47 @@ components:
           type: string
       required:
         - transcript
+    LifeVoiceCommandInput:
+      type: object
+      properties:
+        transcript:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required: [transcript]
+    LifeVoiceCommand:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [add_task, complete_task, income, expense, meal, unknown]
+        title:
+          type: string
+          maxLength: 200
+        targetTitle:
+          type: string
+          maxLength: 200
+        amount:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100000000
+        currency:
+          type: string
+          enum: [GBP, USD, AED, EUR]
+        category:
+          type: string
+          maxLength: 80
+        foodName:
+          type: string
+          maxLength: 120
+        grams:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 2000
+        clarification:
+          type: string
+          maxLength: 240
+      required: [action, title]
     ExercisePhotoInput:
       type: object
       properties:
@@ -439,7 +524,7 @@ components:
           type: string
         source:
           type: string
-          enum: [USDA FoodData Central, Open Food Facts]
+          enum: [USDA FoodData Central, Open Food Facts, Claude estimate]
         calories:
           type: number
           minimum: 0
@@ -453,6 +538,14 @@ components:
           type: number
           minimum: 0
       required: [id, name, source, calories, protein, carbs, fat]
+    NutritionEstimateInput:
+      type: object
+      properties:
+        food:
+          type: string
+          minLength: 2
+          maxLength: 120
+      required: [food]
     MealMacroSummary:
       type: object
       properties:

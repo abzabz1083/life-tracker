@@ -80,6 +80,48 @@ export const TranscribeLifeVoiceNoteResponse = zod.object({
 
 
 /**
+ * @summary Interpret a spoken tracker action
+ */
+export const parseLifeVoiceCommandBodyTranscriptMax = 2000;
+
+
+
+export const ParseLifeVoiceCommandBody = zod.object({
+  "transcript": zod.string().min(1).max(parseLifeVoiceCommandBodyTranscriptMax)
+})
+
+export const parseLifeVoiceCommandResponseTitleMax = 200;
+
+export const parseLifeVoiceCommandResponseTargetTitleMax = 200;
+
+export const parseLifeVoiceCommandResponseAmountExclusiveMin = 0;
+export const parseLifeVoiceCommandResponseAmountMax = 100000000;
+
+export const parseLifeVoiceCommandResponseCategoryMax = 80;
+
+export const parseLifeVoiceCommandResponseFoodNameMax = 120;
+
+export const parseLifeVoiceCommandResponseGramsExclusiveMin = 0;
+export const parseLifeVoiceCommandResponseGramsMax = 2000;
+
+export const parseLifeVoiceCommandResponseClarificationMax = 240;
+
+
+
+export const ParseLifeVoiceCommandResponse = zod.object({
+  "action": zod.enum(['add_task', 'complete_task', 'income', 'expense', 'meal', 'unknown']),
+  "title": zod.string().max(parseLifeVoiceCommandResponseTitleMax),
+  "targetTitle": zod.string().max(parseLifeVoiceCommandResponseTargetTitleMax).optional(),
+  "amount": zod.number().gt(parseLifeVoiceCommandResponseAmountExclusiveMin).max(parseLifeVoiceCommandResponseAmountMax).optional(),
+  "currency": zod.enum(['GBP', 'USD', 'AED', 'EUR']).optional(),
+  "category": zod.string().max(parseLifeVoiceCommandResponseCategoryMax).optional(),
+  "foodName": zod.string().max(parseLifeVoiceCommandResponseFoodNameMax).optional(),
+  "grams": zod.number().gt(parseLifeVoiceCommandResponseGramsExclusiveMin).max(parseLifeVoiceCommandResponseGramsMax).optional(),
+  "clarification": zod.string().max(parseLifeVoiceCommandResponseClarificationMax).optional()
+})
+
+
+/**
  * @summary Identify a gym machine from a photo
  */
 export const IdentifyExerciseMachineBody = zod.object({
@@ -157,13 +199,46 @@ export const searchLifeNutritionResponseFatMin = 0;
 export const SearchLifeNutritionResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "source": zod.enum(['USDA FoodData Central', 'Open Food Facts']),
+  "source": zod.enum(['USDA FoodData Central', 'Open Food Facts', 'Claude estimate']),
   "calories": zod.number().min(searchLifeNutritionResponseCaloriesMin),
   "protein": zod.number().min(searchLifeNutritionResponseProteinMin),
   "carbs": zod.number().min(searchLifeNutritionResponseCarbsMin),
   "fat": zod.number().min(searchLifeNutritionResponseFatMin)
 })
 export const SearchLifeNutritionResponse = zod.array(SearchLifeNutritionResponseItem)
+
+
+/**
+ * @summary Estimate nutrition for a common food with Claude
+ */
+export const estimateLifeNutritionBodyFoodMin = 2;
+export const estimateLifeNutritionBodyFoodMax = 120;
+
+
+
+export const EstimateLifeNutritionBody = zod.object({
+  "food": zod.string().min(estimateLifeNutritionBodyFoodMin).max(estimateLifeNutritionBodyFoodMax)
+})
+
+export const estimateLifeNutritionResponseCaloriesMin = 0;
+
+export const estimateLifeNutritionResponseProteinMin = 0;
+
+export const estimateLifeNutritionResponseCarbsMin = 0;
+
+export const estimateLifeNutritionResponseFatMin = 0;
+
+
+
+export const EstimateLifeNutritionResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "source": zod.enum(['USDA FoodData Central', 'Open Food Facts', 'Claude estimate']),
+  "calories": zod.number().min(estimateLifeNutritionResponseCaloriesMin),
+  "protein": zod.number().min(estimateLifeNutritionResponseProteinMin),
+  "carbs": zod.number().min(estimateLifeNutritionResponseCarbsMin),
+  "fat": zod.number().min(estimateLifeNutritionResponseFatMin)
+})
 
 
 /**

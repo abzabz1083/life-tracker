@@ -380,7 +380,7 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
               {data.settings.nutritionAiProvider === "anthropic" ? "Claude on" : "Use Claude"}
             </button>
           </div>
-          <p className="settings-helper">Food search remains based on USDA FoodData Central and Open Food Facts. AI will not create database nutrition values.</p>
+          <p className="settings-helper">USDA FoodData Central and Open Food Facts are searched first. If they have no match or are unavailable, Claude can estimate common foods; estimates are labeled and are not verified against your packet.</p>
         </section>
 
         <section className="settings-card settings-reminder-card">
@@ -491,7 +491,7 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
             <span><Settings2 size={18} /></span>
             <div><h2>Passcode access</h2><p>Your main tracker records remain on this device.</p></div>
           </div>
-          <p className="settings-helper">Package photos and workout images are stored in this browser. Food-label photos are sent for transcription only when you request it, then remain local.</p>
+          <p className="settings-helper">Package photos and workout images stay in this browser. Voice recordings are sent for transcription, then their transcripts go to Claude to identify the requested action. Food names go to Claude only when you request an estimate or the public database has no match. Label photos are sent for reading only when you request it.</p>
           <button
             className="settings-secondary-button"
             type="button"

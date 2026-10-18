@@ -57,6 +57,61 @@ export interface LifeTranscription {
   transcript: string;
 }
 
+export interface LifeVoiceCommandInput {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  transcript: string;
+}
+
+export type LifeVoiceCommandAction = typeof LifeVoiceCommandAction[keyof typeof LifeVoiceCommandAction];
+
+
+export const LifeVoiceCommandAction = {
+  add_task: 'add_task',
+  complete_task: 'complete_task',
+  income: 'income',
+  expense: 'expense',
+  meal: 'meal',
+  unknown: 'unknown',
+} as const;
+
+export type LifeVoiceCommandCurrency = typeof LifeVoiceCommandCurrency[keyof typeof LifeVoiceCommandCurrency];
+
+
+export const LifeVoiceCommandCurrency = {
+  GBP: 'GBP',
+  USD: 'USD',
+  AED: 'AED',
+  EUR: 'EUR',
+} as const;
+
+export interface LifeVoiceCommand {
+  action: LifeVoiceCommandAction;
+  /** @maxLength 200 */
+  title: string;
+  /** @maxLength 200 */
+  targetTitle?: string;
+  /**
+     * @maximum 100000000
+     * @exclusiveMinimum 0
+     */
+  amount?: number;
+  currency?: LifeVoiceCommandCurrency;
+  /** @maxLength 80 */
+  category?: string;
+  /** @maxLength 120 */
+  foodName?: string;
+  /**
+     * @maximum 2000
+     * @exclusiveMinimum 0
+     */
+  grams?: number;
+  /** @maxLength 240 */
+  clarification?: string;
+}
+
 export type ExercisePhotoInputMimeType = typeof ExercisePhotoInputMimeType[keyof typeof ExercisePhotoInputMimeType];
 
 
@@ -122,6 +177,7 @@ export type NutritionFoodSource = typeof NutritionFoodSource[keyof typeof Nutrit
 export const NutritionFoodSource = {
   USDA_FoodData_Central: 'USDA FoodData Central',
   Open_Food_Facts: 'Open Food Facts',
+  Claude_estimate: 'Claude estimate',
 } as const;
 
 export interface NutritionFood {
@@ -136,6 +192,14 @@ export interface NutritionFood {
   carbs: number;
   /** @minimum 0 */
   fat: number;
+}
+
+export interface NutritionEstimateInput {
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  food: string;
 }
 
 export interface MealMacroSummary {

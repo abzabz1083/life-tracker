@@ -4,7 +4,7 @@ import {
   Heart, LoaderCircle, Plus, Search, Sparkles, Trash2, TrendingUp, Utensils, X,
 } from "lucide-react";
 import {
-  useCreateLifeMealPlan, useIdentifyExerciseMachine, useReadLifeNutritionLabel,
+  useCreateLifeMealPlan, useEstimateLifeNutrition, useIdentifyExerciseMachine, useReadLifeNutritionLabel,
   searchLifeNutrition,
 } from "@workspace/api-client-react";
 import type { NutritionFood } from "@workspace/api-client-react";
@@ -20,6 +20,11 @@ type SuggestedFood = { food: string; grams: number; reason: string; matches: Mac
 type Tab = "food" | "training";
 const nowTime = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 const todayKey = () => dateKey();
+function parseFoodPhrase(value: string) {
+  const amount = value.match(/(?:^|\s)(\d+(?:\.\d+)?)\s*(?:g|grams?)\b/i);
+  const food = value.replace(amount?.[0] ?? "", " ").replace(/\s+/g, " ").trim();
+  return { food, grams: amount ? Number(amount[1]) : undefined };
+}
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const macroText = (n: number) => Number.isInteger(n) ? String(n) : n.toFixed(1);
 const nutrientFactor = (amount: number, grams: number) => amount * grams / 100;
@@ -138,6 +143,7 @@ export function HealthDashboard({ data, update }: Props) {
   const [manual, setManual] = useState(false);
   const [manualValues, setManualValues] = useState(["", "", "", ""]);
   const [labelDraft, setLabelDraft] = useState<LabelDraft | null>(null);
+  const nutritionEstimate = useEstimateLifeNutrition();
   const [labelPhoto, setLabelPhoto] = useState<Blob | null>(null);
   const [labelPreview, setLabelPreview] = useState("");
   const [labelError, setLabelError] = useState("");
@@ -218,14 +224,50 @@ export function HealthDashboard({ data, update }: Props) {
   }
   async function lookupFood(event?: FormEvent) {
     event?.preventDefault();
-    if (query.trim().length < 2) { setFoodError("Enter at least two characters to search."); return; }
+    const parsed = parseFoodPhrase(query.trim());
+    if (parsed.grams) setGrams(String(parsed.grams));
+    if (parsed.food.length < 2) { setFoodError("Enter a food name, for example “white rice 100 grams”."); return; }
+    setQuery(parsed.food);
     setSearching(true); setFoodError(""); setResults([]);
     try {
-      const found = await search(query);
-      setResults(found);
-      if (!found.length) setFoodError("No matches found. You can enter values from a verified label or save a package label photo.");
-    } catch { setFoodError("The food databases could not be reached. Try again, enter values from the packet, or use the package-photo reader."); }
+      let found: MacroFood[] = [];
+      let databaseUnavailable = false;
+      try {
+        found = await search(parsed.food);
+      } catch (error) {
+        if (typeof error === "object" && error !== null && "status" in error && (error as { status?: unknown }).status === 401) throw error;
+        databaseUnavailable = true;
+      }
+      if (found.length) {
+        setResults(found);
+        return;
+      }
+      const estimate = await nutritionEstimate.mutateAsync({ data: { food: parsed.food } });
+      setResults([estimate]);
+      setFoodError(databaseUnavailable
+        ? "The public food databases were unavailable. Claude’s clearly labeled estimate is not verified against a package label."
+        : "No public database match was found. Claude’s clearly labeled estimate is not verified against a package label.");
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "status" in error && (error as { status?: unknown }).status === 401) return;
+      setFoodError(error instanceof Error
+        ? `Food lookup and AI estimate failed: ${error.message}`
+        : "Food lookup and AI estimate failed. Enter values from the packet or use the package-photo reader.");
+    }
     finally { setSearching(false); }
+  }
+  async function estimateFoodWithClaude() {
+    const parsed = parseFoodPhrase(query.trim());
+    if (parsed.grams) setGrams(String(parsed.grams));
+    if (parsed.food.length < 2) { setFoodError("Enter a food name before asking Claude for an estimate."); return; }
+    setQuery(parsed.food); setSearching(true); setFoodError("");
+    try {
+      const estimate = await nutritionEstimate.mutateAsync({ data: { food: parsed.food } });
+      setResults([estimate]);
+      setFoodError("Claude estimate only—not verified against a food database or your package label.");
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "status" in error && (error as { status?: unknown }).status === 401) return;
+      setFoodError(error instanceof Error ? error.message : "Claude could not estimate this food. Try a simpler food name.");
+    } finally { setSearching(false); }
   }
   function createMeal(food: MacroFood | SavedFood, amount = Number(grams), time = mealTime, name = food.name, photoKey?: string) {
     if (!Number.isFinite(amount) || amount <= 0) { setFoodError("Enter a serving amount greater than zero grams."); return; }
@@ -497,12 +539,13 @@ export function HealthDashboard({ data, update }: Props) {
         </Panel>
         <Panel>
           <PanelHeading icon={<Plus size={16}/>} label="FOOD DATABASE" title="Log a meal"/>
-          <p className="hd-copy">Search USDA FoodData Central first, then Open Food Facts. Values are per 100 g and scaled to your portion. Packaged-food data can be incomplete; a label photo is better for your exact product.</p>
+          <p className="hd-copy">Search USDA FoodData Central and Open Food Facts first. If there is no match, Claude can estimate a common food. Values are per 100 g and scaled to your portion; AI estimates are not label-verified.</p>
           <form onSubmit={lookupFood}>
-            <Field label="Food or product" value={query} onChange={setQuery} placeholder="Search food or brand" id="hd-food-search"/>
+            <Field label="Food or product" value={query} onChange={setQuery} placeholder="Try “white rice 100 grams”" id="hd-food-search"/>
             <div className="hd-field-row"><Field label="Serving (g)" type="number" min="1" step="1" value={grams} onChange={setGrams} id="hd-food-grams"/><Field label="Meal time" type="time" value={mealTime} onChange={setMealTime} id="hd-food-time"/></div>
-            <button className="hd-primary" type="submit" disabled={searching || query.trim().length < 2}>{searching ? <LoaderCircle size={16} className="hd-spin"/> : <Search size={16}/>}Search food data</button>
+            <button className="hd-primary" type="submit" disabled={searching || query.trim().length < 2}>{searching ? <LoaderCircle size={16} className="hd-spin"/> : <Search size={16}/>}Search nutrition</button>
           </form>
+          <button type="button" className="hd-text-button" disabled={searching || query.trim().length < 2} onClick={() => void estimateFoodWithClaude()}><Sparkles size={14}/>Ask Claude for an estimate</button>
           {foodError && <ErrorNote>{foodError}</ErrorNote>}
           {results.map(food => <div className="hd-result" key={food.id}><div><b>{food.name}</b><small>{food.source} · 100 g: {Math.round(food.calories)} kcal · P {food.protein} · C {food.carbs} · F {food.fat} g</small><small>At {grams || "0"} g: {macros(food, Number(grams) || 0).calories} kcal · P {macros(food, Number(grams) || 0).protein} · C {macros(food, Number(grams) || 0).carbs} · F {macros(food, Number(grams) || 0).fat} g</small></div><button className="hd-small-button" type="button" onClick={() => createMeal(food)}>Log</button></div>)}
           <button type="button" className="hd-text-button" onClick={() => { setManual(value => !value); setFoodError(""); }}>{manual ? "Close manual entry" : "Enter values from a food label"}</button>

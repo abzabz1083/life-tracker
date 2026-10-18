@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   Check,
+  ChevronDown,
   Clock3,
   Plus,
   Trash2,
@@ -214,14 +215,16 @@ export function StudyDashboard({ data, update }: Props) {
       </div>
 
       <div className="study-dashboard-grid">
-        <section className="study-dashboard-card study-add-card">
-          <div className="study-card-heading">
-            <span className="study-card-icon"><BookOpen size={18} /></span>
-            <div>
-              <h2>Add a module</h2>
-              <p>Your curriculum is loaded below. New modules are numbered within each category.</p>
-            </div>
-          </div>
+        <details className="study-dashboard-card study-add-card">
+          <summary className="study-disclosure-summary">
+            <span className="study-card-icon"><Plus size={18} /></span>
+            <span className="study-disclosure-copy">
+              <b>Add a module</b>
+              <small>Open when you want to add a module or note.</small>
+            </span>
+            <ChevronDown className="study-disclosure-chevron" size={17} />
+          </summary>
+          <div className="study-disclosure-content">
           <label className="study-field">
             <span>Category</span>
             <input
@@ -259,7 +262,8 @@ export function StudyDashboard({ data, update }: Props) {
           >
             <Plus size={16} /> Save module
           </button>
-        </section>
+          </div>
+        </details>
 
         <section className="study-dashboard-card study-library-card">
           <div className="study-library-heading">
@@ -271,11 +275,14 @@ export function StudyDashboard({ data, update }: Props) {
           </div>
           {groups.length ? (
             groups.map(([subject, modules]) => (
-              <section className="study-module-group" key={subject}>
-                <header>
-                  <h3>{subject}</h3>
-                  <span>{modules.length} {modules.length === 1 ? "module" : "modules"}</span>
-                </header>
+              <details className="study-module-group" key={subject}>
+                <summary className="study-module-group-summary">
+                  <span>
+                    <b>{subject}</b>
+                    <small>{modules.filter((module) => module.done).length} of {modules.length} complete</small>
+                  </span>
+                  <ChevronDown className="study-disclosure-chevron" size={16} />
+                </summary>
                 <div className="study-module-list">
                   {modules
                     .slice()
@@ -333,7 +340,7 @@ export function StudyDashboard({ data, update }: Props) {
                       </article>
                     ))}
                 </div>
-              </section>
+              </details>
             ))
           ) : (
             <p className="study-empty-copy">

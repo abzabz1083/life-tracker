@@ -35,6 +35,9 @@ import type {
   LifeTrackerSession,
   LifeTranscription,
   LifeTranscriptionInput,
+  LifeVoiceCommand,
+  LifeVoiceCommandInput,
+  NutritionEstimateInput,
   NutritionFood,
   NutritionLabel,
   NutritionLabelPhoto,
@@ -564,6 +567,94 @@ export const useTranscribeLifeVoiceNote = <TError = ErrorType<unknown>,
       return useMutation(getTranscribeLifeVoiceNoteMutationOptions(options));
     }
 
+export const getParseLifeVoiceCommandUrl = () => {
+
+
+
+
+  return `/api/life/voice-command`
+}
+
+/**
+ * @summary Interpret a spoken tracker action
+ */
+export const parseLifeVoiceCommand = async (lifeVoiceCommandInput: LifeVoiceCommandInput, options?: Parameters<typeof customFetch>[1]): Promise<LifeVoiceCommand> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LifeVoiceCommand>(getParseLifeVoiceCommandUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(lifeVoiceCommandInput)
+  }
+);}
+
+
+
+
+
+export const getParseLifeVoiceCommandMutationKey = () => ['parseLifeVoiceCommand'] as const;
+
+export const getParseLifeVoiceCommandMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseLifeVoiceCommand>>, TError,ParseLifeVoiceCommandMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof parseLifeVoiceCommand>>, TError,ParseLifeVoiceCommandMutationVariables, TContext> => {
+
+const mutationKey = getParseLifeVoiceCommandMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof parseLifeVoiceCommand>>, ParseLifeVoiceCommandMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  parseLifeVoiceCommand(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ParseLifeVoiceCommandMutationResult = NonNullable<Awaited<ReturnType<typeof parseLifeVoiceCommand>>>
+    export type ParseLifeVoiceCommandMutationBody = BodyType<LifeVoiceCommandInput>
+    export type ParseLifeVoiceCommandMutationError = ErrorType<void>
+    export type ParseLifeVoiceCommandMutationVariables = {data: BodyType<LifeVoiceCommandInput>}
+
+    /**
+ * @summary Interpret a spoken tracker action
+ */
+export const useParseLifeVoiceCommand = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseLifeVoiceCommand>>, TError,ParseLifeVoiceCommandMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof parseLifeVoiceCommand>>,
+        TError,
+        ParseLifeVoiceCommandMutationVariables,
+        TContext
+      > => {
+      return useMutation(getParseLifeVoiceCommandMutationOptions(options));
+    }
+
 export const getIdentifyExerciseMachineUrl = () => {
 
 
@@ -823,6 +914,94 @@ export function useSearchLifeNutrition<TData = Awaited<ReturnType<typeof searchL
 
 
 
+
+export const getEstimateLifeNutritionUrl = () => {
+
+
+
+
+  return `/api/life/nutrition-estimate`
+}
+
+/**
+ * @summary Estimate nutrition for a common food with Claude
+ */
+export const estimateLifeNutrition = async (nutritionEstimateInput: NutritionEstimateInput, options?: Parameters<typeof customFetch>[1]): Promise<NutritionFood> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<NutritionFood>(getEstimateLifeNutritionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(nutritionEstimateInput)
+  }
+);}
+
+
+
+
+
+export const getEstimateLifeNutritionMutationKey = () => ['estimateLifeNutrition'] as const;
+
+export const getEstimateLifeNutritionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof estimateLifeNutrition>>, TError,EstimateLifeNutritionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof estimateLifeNutrition>>, TError,EstimateLifeNutritionMutationVariables, TContext> => {
+
+const mutationKey = getEstimateLifeNutritionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof estimateLifeNutrition>>, EstimateLifeNutritionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  estimateLifeNutrition(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EstimateLifeNutritionMutationResult = NonNullable<Awaited<ReturnType<typeof estimateLifeNutrition>>>
+    export type EstimateLifeNutritionMutationBody = BodyType<NutritionEstimateInput>
+    export type EstimateLifeNutritionMutationError = ErrorType<void>
+    export type EstimateLifeNutritionMutationVariables = {data: BodyType<NutritionEstimateInput>}
+
+    /**
+ * @summary Estimate nutrition for a common food with Claude
+ */
+export const useEstimateLifeNutrition = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof estimateLifeNutrition>>, TError,EstimateLifeNutritionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof estimateLifeNutrition>>,
+        TError,
+        EstimateLifeNutritionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getEstimateLifeNutritionMutationOptions(options));
+    }
 
 export const getCreateLifeMealPlanUrl = () => {
 

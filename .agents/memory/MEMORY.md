@@ -1,3 +1,4 @@
 - [Frankfurter currency coverage](frankfurter-currency-coverage.md) — The legacy host redirects to frozen v1; check supported pairs in current v2 before offering currencies.
 - [Vite React dependency cache](vite-react-dependency-cache.md) — After dependency version changes, stale optimized Vite bundles can keep loading an older React runtime until the cache is cleared.
 - [Study curriculum and completion history](study-curriculum-and-completion-history.md) — Keep the provided syllabus in Study with its weekday schedule; retain exact completion events for pattern analysis.
+- [Life Tracker passcode access](life-tracker-passcode-access.md) — Keep the tracker passcode-only; it must not require account signup.

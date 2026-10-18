@@ -12,4 +12,5 @@ export type NutritionFoodSource = typeof NutritionFoodSource[keyof typeof Nutrit
 export const NutritionFoodSource = {
   USDA_FoodData_Central: 'USDA FoodData Central',
   Open_Food_Facts: 'Open Food Facts',
+  Claude_estimate: 'Claude estimate',
 } as const;
