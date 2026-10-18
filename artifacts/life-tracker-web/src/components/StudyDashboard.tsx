@@ -1,12 +1,43 @@
 import { useMemo, useState } from "react";
-import { BookOpen, Check, Plus, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  CalendarDays,
+  Check,
+  Clock3,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import type { LifeData, StudyModule } from "@/lib/life-data";
+import { WEEKLY_STUDY_SCHEDULE } from "@/lib/study-curriculum";
 import "./study-dashboard.css";
 
 type Props = {
   data: LifeData;
   update: <K extends keyof LifeData>(key: K, value: LifeData[K]) => void;
 };
+
+const timeBuckets = [
+  { label: "Morning", range: "5 am–noon", includes: (hour: number) => hour >= 5 && hour < 12 },
+  { label: "Afternoon", range: "noon–5 pm", includes: (hour: number) => hour >= 12 && hour < 17 },
+  { label: "Evening", range: "5–9 pm", includes: (hour: number) => hour >= 17 && hour < 21 },
+  { label: "Night", range: "9 pm–5 am", includes: (hour: number) => hour >= 21 || hour < 5 },
+];
+
+function formatClock(value: string) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "Time not recorded";
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatHourRange(hour: number) {
+  const start = new Date(2000, 0, 1, hour);
+  const end = new Date(2000, 0, 1, hour + 1);
+  const formatter = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
+  return `${formatter.format(start)}–${formatter.format(end)}`;
+}
 
 export function StudyDashboard({ data, update }: Props) {
   const [category, setCategory] = useState("");
@@ -22,6 +53,42 @@ export function StudyDashboard({ data, update }: Props) {
     }
     return [...grouped.entries()];
   }, [data.modules]);
+  const todayName = new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(new Date());
+  const todaySchedule = WEEKLY_STUDY_SCHEDULE.find(({ day }) => day === todayName);
+  const recentCompletions = data.completionEvents
+    .filter((event) => {
+      const timestamp = new Date(event.completedAt).getTime();
+      return Number.isFinite(timestamp) && timestamp >= Date.now() - 30 * 24 * 60 * 60 * 1000;
+    })
+    .slice()
+    .sort((a, b) => Date.parse(b.completedAt) - Date.parse(a.completedAt));
+  const bucketCounts = timeBuckets.map((bucket) => ({
+    ...bucket,
+    count: recentCompletions.filter((event) =>
+      bucket.includes(new Date(event.completedAt).getHours()),
+    ).length,
+  }));
+  const hourCounts = Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    count: recentCompletions.filter(
+      (event) => new Date(event.completedAt).getHours() === hour,
+    ).length,
+  }));
+  const weekdayCounts = WEEKLY_STUDY_SCHEDULE.map(({ day }) => ({
+    day,
+    count: recentCompletions.filter(
+      (event) => new Intl.DateTimeFormat(undefined, { weekday: "long" })
+        .format(new Date(event.completedAt)) === day,
+    ).length,
+  }));
+  const mostActiveHour = hourCounts.reduce(
+    (best, current) => current.count > best.count ? current : best,
+    hourCounts[0],
+  );
+  const mostActiveDay = weekdayCounts.reduce(
+    (best, current) => current.count > best.count ? current : best,
+    weekdayCounts[0],
+  );
 
   const addModule = () => {
     const subject = category.trim() || "General";
@@ -39,6 +106,7 @@ export function StudyDashboard({ data, update }: Props) {
         notes: notes.trim(),
         createdAt: new Date().toISOString(),
         done: false,
+        scheduledDays: [],
       },
       ...data.modules,
     ]);
@@ -46,13 +114,30 @@ export function StudyDashboard({ data, update }: Props) {
     setNotes("");
   };
 
-  const toggleModule = (id: string) =>
+  const toggleModule = (id: string) => {
+    const module = data.modules.find((item) => item.id === id);
+    if (!module) return;
+    const completedAt = module.done ? undefined : new Date().toISOString();
     update(
       "modules",
-      data.modules.map((module) =>
-        module.id === id ? { ...module, done: !module.done } : module,
+      data.modules.map((item) =>
+        item.id === id ? { ...item, done: !item.done, completedAt } : item,
       ),
     );
+    if (completedAt) {
+      update("completionEvents", [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          kind: "module",
+          itemId: module.id,
+          title: module.title,
+          category: module.category,
+          completedAt,
+        },
+        ...data.completionEvents,
+      ]);
+    }
+  };
 
   const completed = data.modules.filter((module) => module.done).length;
 
@@ -70,13 +155,71 @@ export function StudyDashboard({ data, update }: Props) {
         </div>
       </header>
 
+      <div className="study-summary-grid">
+        <section className="study-dashboard-card study-schedule-card">
+          <div className="study-card-heading">
+            <span className="study-card-icon"><CalendarDays size={18} /></span>
+            <div>
+              <h2>Your weekly study plan</h2>
+              <p>Today: {todaySchedule?.subjects.join(" · ") ?? "No study scheduled"}</p>
+            </div>
+          </div>
+          <div className="study-week-list">
+            {WEEKLY_STUDY_SCHEDULE.map(({ day, subjects }) => (
+              <div className={`study-week-row${todayName === day ? " is-today" : ""}`} key={day}>
+                <b>{day}</b>
+                <span>{subjects.join(" · ")}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="study-dashboard-card study-completion-card">
+          <div className="study-card-heading">
+            <span className="study-card-icon"><Clock3 size={18} /></span>
+            <div>
+              <h2>When you get things done</h2>
+              <p>Task and module check-offs · last 30 days</p>
+            </div>
+          </div>
+          {recentCompletions.length ? (
+            <>
+              <div className="study-insight-pair">
+                <div>
+                  <span>Most active time</span>
+                  <strong>{formatHourRange(mostActiveHour.hour)}</strong>
+                  <small>{mostActiveHour.count} {mostActiveHour.count === 1 ? "completion" : "completions"}</small>
+                </div>
+                <div>
+                  <span>Most active day</span>
+                  <strong>{mostActiveDay.day}</strong>
+                  <small>{mostActiveDay.count} completions</small>
+                </div>
+              </div>
+              <div className="study-bucket-list" aria-label="Completions by time of day">
+                {bucketCounts.map(({ label, range, count }) => (
+                  <span key={label}>{label}<small>{range}</small><b>{count}</b></span>
+                ))}
+              </div>
+              <p className="study-completion-caption">
+                {recentCompletions.length} recorded {recentCompletions.length === 1 ? "completion" : "completions"} in the last 30 days.
+              </p>
+            </>
+          ) : (
+            <p className="study-empty-copy">
+              No completion times are recorded yet. Check off a task or module and this will show when you tend to get things done.
+            </p>
+          )}
+        </section>
+      </div>
+
       <div className="study-dashboard-grid">
         <section className="study-dashboard-card study-add-card">
           <div className="study-card-heading">
             <span className="study-card-icon"><BookOpen size={18} /></span>
             <div>
               <h2>Add a module</h2>
-              <p>Module numbers are assigned within each category.</p>
+              <p>Your curriculum is loaded below. New modules are numbered within each category.</p>
             </div>
           </div>
           <label className="study-field">
@@ -124,7 +267,7 @@ export function StudyDashboard({ data, update }: Props) {
               <p className="eyebrow">YOUR LIBRARY</p>
               <h2>{data.modules.length ? "Study modules" : "Your first module starts here"}</h2>
             </div>
-            <span>{groups.length} {groups.length === 1 ? "subject" : "subjects"}</span>
+            <span>{groups.length} {groups.length === 1 ? "subject" : "subjects"} · {completed} completed</span>
           </div>
           {groups.length ? (
             groups.map(([subject, modules]) => (
@@ -143,23 +286,29 @@ export function StudyDashboard({ data, update }: Props) {
                         key={module.id}
                       >
                         <span className="study-module-number">
-                          {String(module.moduleNumber).padStart(2, "0")}
+                          {module.moduleLabel ?? String(module.moduleNumber).padStart(2, "0")}
                         </span>
                         <div className="study-module-copy">
                           <b>{module.title}</b>
                           <small>
-                            {new Intl.DateTimeFormat(undefined, {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            }).format(new Date(module.createdAt))}
+                            {module.scheduledDays?.length
+                              ? module.scheduledDays.map((day) => day.slice(0, 3)).join(" · ")
+                              : "No weekly schedule"}
+                            {module.scheduleNote ? ` · ${module.scheduleNote}` : ""}
                             {module.notes ? ` · ${module.notes}` : ""}
                           </small>
+                          {module.done && (
+                            <small className="study-module-completion">
+                              {module.completedAt
+                                ? `Completed at ${formatClock(module.completedAt)}`
+                                : "Already complete · time not recorded"}
+                            </small>
+                          )}
                         </div>
                         <button
                           className="study-module-done"
                           aria-pressed={module.done}
-                          aria-label={`${module.done ? "Mark" : "Mark"} ${module.title} ${module.done ? "incomplete" : "complete"}`}
+                          aria-label={`Mark ${module.title} ${module.done ? "incomplete" : "complete"}`}
                           data-testid={`module-done-${module.id}`}
                           type="button"
                           onClick={() => toggleModule(module.id)}

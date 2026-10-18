@@ -128,17 +128,20 @@ function ordinal(value: number): string {
 function getTimelineItems(data: LifeData): TimelineItem[] {
   const items: TimelineItem[] = [];
 
-  data.tasks.forEach((task) => items.push({
-    id: `task-${task.id}`,
-    category: "tasks",
-    title: task.title,
-    detail: "Task",
-    timestamp: task.date,
-    dateKey: dateOnly(task.date),
-    icon: task.done ? Check : Circle,
-    tone: "task",
-    status: task.done ? "Completed" : "Open",
-  }));
+  data.tasks.forEach((task) => {
+    const timestamp = task.done ? task.completedAt ?? "" : task.date;
+    items.push({
+      id: `task-${task.id}`,
+      category: "tasks",
+      title: task.title,
+      detail: task.done && !task.completedAt ? "Completed · exact time not recorded" : "Task",
+      timestamp,
+      dateKey: dateOnly(timestamp),
+      icon: task.done ? Check : Circle,
+      tone: "task",
+      status: task.done ? "Completed" : "Open",
+    });
+  });
 
   data.money.forEach((entry) => items.push({
     id: `money-${entry.id}`,
@@ -153,17 +156,41 @@ function getTimelineItems(data: LifeData): TimelineItem[] {
     status: entry.kind === "income" ? "Income" : "Expense",
   }));
 
-  data.modules.forEach((module) => items.push({
-    id: `module-${module.id}`,
-    category: "learning",
-    title: module.title,
-    detail: `${module.category}${module.moduleNumber ? ` · Module ${module.moduleNumber}` : ""}${module.notes ? ` · ${module.notes}` : ""}`,
-    timestamp: module.createdAt,
-    dateKey: dateOnly(module.createdAt),
-    icon: BookOpen,
-    tone: "learning",
-    status: module.done ? "Completed" : "In progress",
-  }));
+  data.modules.forEach((module) => {
+    const timestamp = module.done ? module.completedAt ?? "" : module.createdAt;
+    items.push({
+      id: `module-${module.id}`,
+      category: "learning",
+      title: module.title,
+      detail: `${module.category}${module.moduleLabel ? ` · Module ${module.moduleLabel}` : ""}${module.notes ? ` · ${module.notes}` : ""}${module.done && !module.completedAt ? " · Completed before time tracking" : ""}`,
+      timestamp,
+      dateKey: dateOnly(timestamp),
+      icon: BookOpen,
+      tone: "learning",
+      status: module.done ? "Completed" : "In progress",
+    });
+  });
+
+  data.completionEvents.forEach((event) => {
+    const currentTaskAlreadyShowsThis = event.kind === "task" &&
+      data.tasks.some((task) => task.id === event.itemId && task.completedAt === event.completedAt);
+    const currentModuleAlreadyShowsThis = event.kind === "module" &&
+      data.modules.some((module) => module.id === event.itemId && module.completedAt === event.completedAt);
+    if (currentTaskAlreadyShowsThis || currentModuleAlreadyShowsThis) return;
+    items.push({
+      id: `completion-${event.id}`,
+      category: event.kind === "task" ? "tasks" : "learning",
+      title: event.title,
+      detail: event.kind === "task"
+        ? "Task completion"
+        : `${event.category ?? "Study module"} · module completion`,
+      timestamp: event.completedAt,
+      dateKey: dateOnly(event.completedAt),
+      icon: event.kind === "task" ? Check : BookOpen,
+      tone: event.kind === "task" ? "task" : "learning",
+      status: "Completed",
+    });
+  });
 
   data.meals.forEach((meal) => {
     const combinedDate = meal.time ? `${dateOnly(meal.date)}T${meal.time}` : meal.date;

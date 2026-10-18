@@ -1,3 +1,9 @@
+import {
+  createCurriculumModules,
+  STUDY_CURRICULUM_VERSION,
+  type StudyWeekday,
+} from "./study-curriculum";
+
 export type Currency = "GBP" | "USD" | "AED" | "EUR";
 
 export type Task = {
@@ -5,6 +11,7 @@ export type Task = {
   title: string;
   done: boolean;
   date: string;
+  completedAt?: string;
 };
 
 export type MoneyEntry = {
@@ -32,9 +39,23 @@ export type StudyModule = {
   category: string;
   title: string;
   moduleNumber: number;
+  moduleLabel?: string;
   notes: string;
   createdAt: string;
   done: boolean;
+  completedAt?: string;
+  scheduledDays?: StudyWeekday[];
+  scheduleNote?: string;
+  curriculumKey?: string;
+};
+
+export type CompletionEvent = {
+  id: string;
+  kind: "task" | "module";
+  itemId: string;
+  title: string;
+  category?: string;
+  completedAt: string;
 };
 
 export type MealIngredient = {
@@ -140,6 +161,8 @@ export type LifeData = {
   workouts: WorkoutEntry[];
   voiceNotes: VoiceNote[];
   weeklyReviews: WeeklyReview[];
+  completionEvents: CompletionEvent[];
+  studyCurriculumVersion: number;
   settings: Settings;
 };
 
@@ -147,7 +170,7 @@ export const createDefaultLifeData = (): LifeData => ({
   tasks: [],
   money: [],
   bills: [],
-  modules: [],
+  modules: createCurriculumModules(),
   meals: [],
   savedFoods: [],
   savedMeals: [],
@@ -155,6 +178,8 @@ export const createDefaultLifeData = (): LifeData => ({
   workouts: [],
   voiceNotes: [],
   weeklyReviews: [],
+  completionEvents: [],
+  studyCurriculumVersion: STUDY_CURRICULUM_VERSION,
   settings: {
     baseCurrency: "GBP",
     monthlyIncomeTarget: 0,
@@ -178,6 +203,30 @@ export function normalizeLifeData(value: unknown): LifeData {
     telegramChatId?: string;
   };
   const { telegramChatId: _legacyChatId, ...settings } = savedSettings;
+  const savedModules = Array.isArray(stored.modules)
+    ? stored.modules.map((module) => ({
+        ...module,
+        done: Boolean(module.done),
+        scheduledDays: Array.isArray(module.scheduledDays) ? module.scheduledDays : [],
+      }))
+    : [];
+  const importedVersion = Number(stored.studyCurriculumVersion) || 0;
+  const modules =
+    importedVersion >= STUDY_CURRICULUM_VERSION
+      ? savedModules
+      : [
+          ...savedModules,
+          ...createCurriculumModules().filter(
+            (seed) =>
+              !savedModules.some(
+                (module) =>
+                  module.category.trim().toLocaleLowerCase() ===
+                    seed.category.toLocaleLowerCase() &&
+                  module.title.trim().toLocaleLowerCase() ===
+                    seed.title.toLocaleLowerCase(),
+              ),
+          ),
+        ];
 
   return {
     ...defaults,
@@ -185,12 +234,7 @@ export function normalizeLifeData(value: unknown): LifeData {
     tasks: Array.isArray(stored.tasks) ? stored.tasks : [],
     money: Array.isArray(stored.money) ? stored.money : [],
     bills: Array.isArray(stored.bills) ? stored.bills : [],
-    modules: Array.isArray(stored.modules)
-      ? stored.modules.map((module) => ({
-          ...module,
-          done: Boolean(module.done),
-        }))
-      : [],
+    modules,
     meals: Array.isArray(stored.meals) ? stored.meals : [],
     savedFoods: Array.isArray(stored.savedFoods) ? stored.savedFoods : [],
     savedMeals: Array.isArray(stored.savedMeals) ? stored.savedMeals : [],
@@ -198,6 +242,10 @@ export function normalizeLifeData(value: unknown): LifeData {
     workouts: Array.isArray(stored.workouts) ? stored.workouts : [],
     voiceNotes: Array.isArray(stored.voiceNotes) ? stored.voiceNotes : [],
     weeklyReviews: Array.isArray(stored.weeklyReviews) ? stored.weeklyReviews : [],
+    completionEvents: Array.isArray(stored.completionEvents)
+      ? stored.completionEvents
+      : [],
+    studyCurriculumVersion: STUDY_CURRICULUM_VERSION,
     settings: { ...defaults.settings, ...settings },
   };
 }
