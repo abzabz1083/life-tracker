@@ -1,4 +1,3 @@
-import { getAuth } from "@clerk/express";
 import { and, eq } from "drizzle-orm";
 import { Router, type IRouter, type RequestHandler, type Response } from "express";
 import {
@@ -20,25 +19,17 @@ import {
   decryptTelegramToken,
   encryptTelegramToken,
 } from "../lib/telegramTokenEncryption";
+import { PASSCODE_OWNER_ID, requirePasscodeSession } from "../lib/passcodeAuth";
 
 const router: IRouter = Router();
+router.use(requirePasscodeSession);
 const nutritionCache = new Map<
   string,
   { items: Array<Record<string, string | number>>; expiresAt: number }
 >();
 
-const requireSignedIn: RequestHandler = (req, res, next) => {
-  const userId = getAuth(req).userId;
-  if (!userId) {
-    res.status(401).json({ error: "Sign in to use background reminders." });
-    return;
-  }
-  res.locals.userId = userId;
-  next();
-};
-
 function authenticatedUserId(res: Response): string {
-  return res.locals.userId as string;
+  return (res.locals.userId as string | undefined) ?? PASSCODE_OWNER_ID;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -428,7 +419,7 @@ router.post("/life/meal-plan", aiRateLimit, async (req, res) => {
   }
 });
 
-router.get("/life/reminders", requireSignedIn, async (_req, res) => {
+router.get("/life/reminders", async (_req, res) => {
   try {
     const [config] = await db
       .select()
@@ -447,7 +438,7 @@ router.get("/life/reminders", requireSignedIn, async (_req, res) => {
   }
 });
 
-router.put("/life/reminders", requireSignedIn, async (req, res) => {
+router.put("/life/reminders", async (req, res) => {
   const parsed = UpdateLifeReminderSettingsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Check the Telegram chat ID, time, and timezone." });
@@ -513,7 +504,7 @@ router.put("/life/reminders", requireSignedIn, async (req, res) => {
   }
 });
 
-router.delete("/life/reminders", requireSignedIn, async (_req, res) => {
+router.delete("/life/reminders", async (_req, res) => {
   try {
     await db
       .delete(lifeReminderConfigs)
@@ -524,7 +515,7 @@ router.delete("/life/reminders", requireSignedIn, async (_req, res) => {
   }
 });
 
-router.put("/life/reminders/snapshot", requireSignedIn, async (req, res) => {
+router.put("/life/reminders/snapshot", async (req, res) => {
   const parsed = SyncLifeReminderSnapshotBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Reminder items could not be saved." });
@@ -555,7 +546,7 @@ router.put("/life/reminders/snapshot", requireSignedIn, async (req, res) => {
   }
 });
 
-router.post("/life/telegram-test", requireSignedIn, aiRateLimit, async (req, res) => {
+router.post("/life/telegram-test", aiRateLimit, async (req, res) => {
   try {
     const [config] = await db
       .select()

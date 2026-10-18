@@ -18,6 +18,39 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Check whether the browser has an active passcode session
+ */
+export const GetLifeTrackerSessionResponse = zod.object({
+  "authenticated": zod.boolean(),
+  "configured": zod.boolean()
+})
+
+
+/**
+ * @summary Unlock the single-user tracker with its passcode
+ */
+export const unlockLifeTrackerBodyPasscodeMin = 4;
+export const unlockLifeTrackerBodyPasscodeMax = 128;
+
+
+
+export const UnlockLifeTrackerBody = zod.object({
+  "passcode": zod.string().min(unlockLifeTrackerBodyPasscodeMin).max(unlockLifeTrackerBodyPasscodeMax)
+})
+
+export const UnlockLifeTrackerResponse = zod.object({
+  "authenticated": zod.boolean(),
+  "configured": zod.boolean()
+})
+
+
+/**
+ * @summary End the current passcode session
+ */
+export const LogoutLifeTrackerResponse = zod.void()
+
+
+/**
  * @summary Generate a concise personal progress review
  */
 export const createLifeInsightBodySnapshotMax = 10000;

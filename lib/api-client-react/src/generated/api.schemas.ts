@@ -5,6 +5,23 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface ApiError {
+  error: string;
+}
+
+export interface PasscodeInput {
+  /**
+     * @minLength 4
+     * @maxLength 128
+     */
+  passcode: string;
+}
+
+export interface LifeTrackerSession {
+  authenticated: boolean;
+  configured: boolean;
+}
+
 export interface HealthStatus {
   status: string;
 }

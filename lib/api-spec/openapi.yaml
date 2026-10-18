@@ -8,6 +8,8 @@ servers:
   - url: /api
     description: Base API path
 tags:
+  - name: auth
+    description: Single-passcode access to the private life tracker
   - name: health
     description: Health operations
   - name: life
@@ -26,6 +28,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/session:
+    get:
+      operationId: getLifeTrackerSession
+      tags: [auth]
+      summary: Check whether the browser has an active passcode session
+      responses:
+        "200":
+          description: Current passcode gate status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifeTrackerSession"
+  /auth/passcode:
+    post:
+      operationId: unlockLifeTracker
+      tags: [auth]
+      summary: Unlock the single-user tracker with its passcode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasscodeInput"
+      responses:
+        "200":
+          description: Passcode accepted and session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifeTrackerSession"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Passcode not accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Too many failed attempts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Passcode authentication is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /auth/logout:
+    post:
+      operationId: logoutLifeTracker
+      tags: [auth]
+      summary: End the current passcode session
+      responses:
+        "204":
+          description: Session ended
   /life/insights:
     post:
       operationId: createLifeInsight
@@ -246,6 +310,28 @@ paths:
           description: Telegram reminder settings have not been saved
 components:
   schemas:
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    PasscodeInput:
+      type: object
+      properties:
+        passcode:
+          type: string
+          minLength: 4
+          maxLength: 128
+      required: [passcode]
+    LifeTrackerSession:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+        configured:
+          type: boolean
+      required: [authenticated, configured]
     HealthStatus:
       type: object
       properties:

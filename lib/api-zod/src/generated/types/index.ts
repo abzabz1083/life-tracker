@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './apiError';
 export * from './exercisePhotoInput';
 export * from './exercisePhotoInputMimeType';
 export * from './exerciseSuggestion';
@@ -20,6 +21,7 @@ export * from './lifeReminderSettingsInput';
 export * from './lifeReminderSnapshotInput';
 export * from './lifeReminderSnapshotResult';
 export * from './lifeReminderTask';
+export * from './lifeTrackerSession';
 export * from './lifeTranscription';
 export * from './lifeTranscriptionInput';
 export * from './lifeTranscriptionInputFormat';
@@ -30,6 +32,7 @@ export * from './nutritionFoodSource';
 export * from './nutritionLabel';
 export * from './nutritionLabelPhoto';
 export * from './nutritionLabelPhotoMimeType';
+export * from './passcodeInput';
 export * from './searchLifeNutritionParams';
 export * from './telegramTestInput';
 export * from './telegramTestResult';

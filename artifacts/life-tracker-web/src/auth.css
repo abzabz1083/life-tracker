@@ -22,5 +22,16 @@
 .auth-local-note svg { flex: 0 0 auto; margin-top: 1px; }
 .auth-screen { display: flex; align-items: center; justify-content: center; padding: 30px 16px; }
 .auth-loading { min-height: 100dvh; display: grid; place-items: center; background: hsl(var(--background)); color: hsl(var(--muted-foreground)); font-size: 13px; }
+.passcode-card { justify-items: stretch; max-width: 470px; margin: auto; }
+.passcode-card h2,.passcode-card > p { text-align: center; }
+.passcode-form { display: grid; width: 100%; gap: 9px; }
+.passcode-form label { color: hsl(var(--foreground)); font-size: 12px; font-weight: 650; }
+.passcode-form input { width: 100%; min-height: 46px; border: 1px solid hsl(var(--border)); border-radius: 11px; padding: 0 13px; outline: none; background: hsl(var(--background)); color: hsl(var(--foreground)); font: inherit; letter-spacing: .2em; }
+.passcode-form input:focus-visible { border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / 12%); }
+.passcode-form button:disabled { cursor: not-allowed; opacity: .6; }
+.passcode-form .passcode-message { margin: 0 0 3px; color: #a0443b; font-size: 11px; line-height: 1.5; text-align: left; }
+.passcode-card > .passcode-message { margin: 0 0 14px; color: #a0443b; font-size: 11px; line-height: 1.5; }
+.passcode-page .auth-story { align-self: center; }
+.passcode-page .auth-local-note { text-align: left; }
 @media (max-width: 820px) { .auth-landing { grid-template-columns: 1fr; gap: 36px; max-width: 620px; padding: 38px 22px; } .auth-kicker { margin-top: 34px; } .auth-story h1 { font-size: clamp(42px,11vw,60px); } }
 @media (max-width: 460px) { .auth-landing { padding: 28px 17px; } .auth-card-wrap { padding: 19px 14px; } .auth-features { grid-template-columns: 1fr; } }

@@ -10,7 +10,6 @@ import {
   Settings2,
   Wallet,
 } from "lucide-react";
-import { useClerk } from "@clerk/react";
 import {
   useGetLifeReminderSettings,
   useSendLifeTelegramTest,
@@ -24,11 +23,10 @@ import "./settings-dashboard.css";
 type Props = {
   data: LifeData;
   update: <K extends keyof LifeData>(key: K, value: LifeData[K]) => void;
+  onSignOut: () => Promise<void>;
 };
 
 const currencies: Currency[] = ["GBP", "USD", "AED", "EUR"];
-const appBasePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
 async function exchangeRate(from: Currency, to: Currency): Promise<number> {
   if (from === to) return 1;
   const response = await fetch(`https://api.frankfurter.dev/v2/rate/${from}/${to}`);
@@ -40,8 +38,7 @@ async function exchangeRate(from: Currency, to: Currency): Promise<number> {
   return result.rate;
 }
 
-export function SettingsDashboard({ data, update }: Props) {
-  const { signOut } = useClerk();
+export function SettingsDashboard({ data, update, onSignOut }: Props) {
   const [activeTab, setActiveTab] = useState<"preferences" | "history">("preferences");
   const reminderQuery = useGetLifeReminderSettings();
   const saveReminder = useUpdateLifeReminderSettings();
@@ -59,6 +56,7 @@ export function SettingsDashboard({ data, update }: Props) {
   const [currencyError, setCurrencyError] = useState("");
   const [reminderMessage, setReminderMessage] = useState("");
   const [reminderError, setReminderError] = useState("");
+  const [accessError, setAccessError] = useState("");
 
   useEffect(() => {
     if (reminderQuery.data) {
@@ -99,6 +97,15 @@ export function SettingsDashboard({ data, update }: Props) {
       );
     } finally {
       setCurrencyBusy(false);
+    }
+  };
+
+  const lockTracker = async () => {
+    setAccessError("");
+    try {
+      await onSignOut();
+    } catch {
+      setAccessError("The tracker could not be locked. Check your connection and try again.");
     }
   };
 
@@ -436,16 +443,17 @@ export function SettingsDashboard({ data, update }: Props) {
         <section className="settings-card settings-account-card">
           <div className="settings-card-heading">
             <span><Settings2 size={18} /></span>
-            <div><h2>Account and local data</h2><p>Your main tracker records remain on this device.</p></div>
+            <div><h2>Passcode access</h2><p>Your main tracker records remain on this device.</p></div>
           </div>
           <p className="settings-helper">Package photos and workout images are stored in this browser. Food-label photos are sent for transcription only when you request it, then remain local.</p>
           <button
             className="settings-secondary-button"
             type="button"
-            onClick={() => void signOut({ redirectUrl: appBasePath || "/" })}
+            onClick={() => void lockTracker()}
           >
-            <LogOut size={15} /> Sign out
+            <LogOut size={15} /> Lock tracker
           </button>
+          {accessError && <p className="settings-error" role="alert">{accessError}</p>}
         </section>
       </div>
     </div>

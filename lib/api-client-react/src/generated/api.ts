@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ApiError,
   ExercisePhotoInput,
   ExerciseSuggestion,
   HealthStatus,
@@ -31,11 +32,13 @@ import type {
   LifeReminderSettingsInput,
   LifeReminderSnapshotInput,
   LifeReminderSnapshotResult,
+  LifeTrackerSession,
   LifeTranscription,
   LifeTranscriptionInput,
   NutritionFood,
   NutritionLabel,
   NutritionLabelPhoto,
+  PasscodeInput,
   SearchLifeNutritionParams,
   TelegramTestInput,
   TelegramTestResult
@@ -145,6 +148,245 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+
+export const getGetLifeTrackerSessionUrl = () => {
+
+
+
+
+  return `/api/auth/session`
+}
+
+/**
+ * @summary Check whether the browser has an active passcode session
+ */
+export const getLifeTrackerSession = async ( options?: Parameters<typeof customFetch>[1]): Promise<LifeTrackerSession> => {
+
+  return customFetch<LifeTrackerSession>(getGetLifeTrackerSessionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLifeTrackerSessionQueryKey = () => {
+    return [
+    `/api/auth/session`
+    ] as const;
+    }
+
+
+export const getGetLifeTrackerSessionQueryOptions = <TData = Awaited<ReturnType<typeof getLifeTrackerSession>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLifeTrackerSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLifeTrackerSessionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLifeTrackerSession>>> = ({ signal }) => getLifeTrackerSession({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLifeTrackerSession>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLifeTrackerSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getLifeTrackerSession>>>
+export type GetLifeTrackerSessionQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Check whether the browser has an active passcode session
+ */
+
+export function useGetLifeTrackerSession<TData = Awaited<ReturnType<typeof getLifeTrackerSession>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLifeTrackerSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLifeTrackerSessionQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUnlockLifeTrackerUrl = () => {
+
+
+
+
+  return `/api/auth/passcode`
+}
+
+/**
+ * @summary Unlock the single-user tracker with its passcode
+ */
+export const unlockLifeTracker = async (passcodeInput: PasscodeInput, options?: Parameters<typeof customFetch>[1]): Promise<LifeTrackerSession> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LifeTrackerSession>(getUnlockLifeTrackerUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passcodeInput)
+  }
+);}
+
+
+
+
+
+export const getUnlockLifeTrackerMutationKey = () => ['unlockLifeTracker'] as const;
+
+export const getUnlockLifeTrackerMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlockLifeTracker>>, TError,UnlockLifeTrackerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unlockLifeTracker>>, TError,UnlockLifeTrackerMutationVariables, TContext> => {
+
+const mutationKey = getUnlockLifeTrackerMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlockLifeTracker>>, UnlockLifeTrackerMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  unlockLifeTracker(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnlockLifeTrackerMutationResult = NonNullable<Awaited<ReturnType<typeof unlockLifeTracker>>>
+    export type UnlockLifeTrackerMutationBody = BodyType<PasscodeInput>
+    export type UnlockLifeTrackerMutationError = ErrorType<ApiError>
+    export type UnlockLifeTrackerMutationVariables = {data: BodyType<PasscodeInput>}
+
+    /**
+ * @summary Unlock the single-user tracker with its passcode
+ */
+export const useUnlockLifeTracker = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlockLifeTracker>>, TError,UnlockLifeTrackerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unlockLifeTracker>>,
+        TError,
+        UnlockLifeTrackerMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUnlockLifeTrackerMutationOptions(options));
+    }
+
+export const getLogoutLifeTrackerUrl = () => {
+
+
+
+
+  return `/api/auth/logout`
+}
+
+/**
+ * @summary End the current passcode session
+ */
+export const logoutLifeTracker = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getLogoutLifeTrackerUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLogoutLifeTrackerMutationKey = () => ['logoutLifeTracker'] as const;
+
+export const getLogoutLifeTrackerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutLifeTracker>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof logoutLifeTracker>>, TError,void, TContext> => {
+
+const mutationKey = getLogoutLifeTrackerMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logoutLifeTracker>>, void> = () => {
+
+
+          return  logoutLifeTracker(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogoutLifeTrackerMutationResult = NonNullable<Awaited<ReturnType<typeof logoutLifeTracker>>>
+
+    export type LogoutLifeTrackerMutationError = ErrorType<unknown>
+
+
+    /**
+ * @summary End the current passcode session
+ */
+export const useLogoutLifeTracker = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutLifeTracker>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof logoutLifeTracker>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getLogoutLifeTrackerMutationOptions(options));
+    }
 
 export const getCreateLifeInsightUrl = () => {
 

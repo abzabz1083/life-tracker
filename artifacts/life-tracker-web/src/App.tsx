@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { ClerkProvider, SignIn, SignUp, useAuth, useClerk } from '@clerk/react';
-import { publishableKeyFromHost } from '@clerk/react/internal';
-import { shadcn } from '@clerk/themes';
-import { Link, Redirect, Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
+import { Link, useLocation, Router as WouterRouter } from 'wouter';
 import {
   Activity, ArrowDownLeft, ArrowUpRight, AudioLines, BookOpen, Check, CheckCircle2,
   ChevronRight, Clock3, Dumbbell, FileText, Heart, Home, LoaderCircle,
   Mic, Plus, Search, Settings2, Sparkles, Trash2, TrendingUp, Wallet, X,
 } from 'lucide-react';
 import {
-  getHealthCheckQueryKey, useCreateLifeInsight, useHealthCheck,
+  getGetLifeTrackerSessionQueryKey, getHealthCheckQueryKey,
+  useCreateLifeInsight, useGetLifeTrackerSession, useHealthCheck,
   useIdentifyExerciseMachine, useSendLifeTelegramTest, useSyncLifeReminderSnapshot, useTranscribeLifeVoiceNote,
+  useLogoutLifeTracker, useUnlockLifeTracker,
 } from '@workspace/api-client-react';
 import { HealthDashboard } from '@/components/HealthDashboard';
 import { SettingsDashboard } from '@/components/SettingsDashboard';
@@ -39,13 +38,6 @@ import './weekly-review.css';
 
 const STORE='life-tracker-web-v1';
 const basePath=import.meta.env.BASE_URL.replace(/\/$/,'');
-const clerkPubKey=publishableKeyFromHost(window.location.hostname,import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
-const clerkProxyUrl=import.meta.env.VITE_CLERK_PROXY_URL;
-const clerkAppearance={
- theme:shadcn,cssLayerName:'clerk',options:{logoPlacement:'inside' as const,logoLinkUrl:basePath||'/',logoImageUrl:`${window.location.origin}${basePath}/logo.svg`},
- variables:{colorPrimary:'#426456',colorForeground:'#27322e',colorMutedForeground:'#717a75',colorDanger:'#a83f3a',colorBackground:'#fbfaf6',colorInput:'#ffffff',colorInputForeground:'#27322e',colorNeutral:'#d9ddd7',fontFamily:'DM Sans, sans-serif',borderRadius:'0.75rem'},
- elements:{rootBox:'w-full flex justify-center',cardBox:'bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-sm',card:'!shadow-none !border-0 !bg-transparent !rounded-none',footer:'!shadow-none !border-0 !bg-transparent !rounded-none',headerTitle:'text-2xl font-semibold text-slate-800',headerSubtitle:'text-sm text-slate-500',formFieldLabel:'text-sm font-medium text-slate-700',footerActionLink:'font-semibold text-emerald-800',footerActionText:'text-sm text-slate-500',formFieldInput:'rounded-xl border-slate-200 bg-stone-50',formButtonPrimary:'rounded-xl bg-emerald-800 hover:bg-emerald-900',socialButtonsBlockButton:'rounded-xl border-slate-200',dividerLine:'bg-slate-200',alertText:'text-sm',main:'gap-5'},
-};
 const monthKey=()=>dateKey().slice(0,7);
 const money=(n:number,c:Currency)=>new Intl.NumberFormat(undefined,{style:'currency',currency:c,maximumFractionDigits:2}).format(Number.isFinite(n)?n:0);
 const humanDate=()=>new Intl.DateTimeFormat(undefined,{weekday:'long',month:'long',day:'numeric'}).format(new Date());
@@ -158,7 +150,7 @@ function SettingsPage({data,update}:{data:LifeData;update:<K extends keyof LifeD
 }
 function NotFound(){return <div className="not-found"><span className="eyebrow">PAGE NOT FOUND</span><h1 className="serif">Let’s find your way back.</h1><Link href="/user-portal" className="button"><Home size={16}/>Return to today</Link></div>}
 const queryClient=new QueryClient();
-function TrackerRouter(){
+function TrackerRouter({onSignOut}:{onSignOut:()=>Promise<void>}){
  const {data,update,ready}=useLife();
  const [path]=useLocation();
  const reminderSync=useSyncLifeReminderSnapshot();
@@ -174,29 +166,34 @@ function TrackerRouter(){
   :route==='/money'?<MoneyPage data={data} update={update}/>
   :route==='/study'?<StudyDashboard data={data} update={update}/>
   :route==='/health'?<HealthDashboard data={data} update={update}/>
-  :route==='/settings'?<SettingsDashboard data={data} update={update}/>
+   :route==='/settings'?<SettingsDashboard data={data} update={update} onSignOut={onSignOut}/>
   :<NotFound/>;
  return <AppShell>{!ready?<div className="loading-surface"><div className="skeleton skeleton-heading"/><div className="skeleton-grid"><div className="skeleton"/><div className="skeleton"/></div></div>:page}</AppShell>
 }
 function AuthLoading(){return <div className="auth-loading" role="status">Opening your private tracker…</div>}
-function HomeRedirect(){
- const {isLoaded,isSignedIn}=useAuth();
- if(!isLoaded)return <AuthLoading/>;
- return isSignedIn?<Redirect to="/user-portal" replace/>:<LandingPage/>;
-}
-function AuthenticatedTracker(){
- const {isLoaded,isSignedIn}=useAuth();
- if(!isLoaded)return <AuthLoading/>;
- if(!isSignedIn)return <Redirect to="/" replace/>;
- return <TrackerRouter/>;
-}
-function LandingPage(){
- return <main className="auth-landing">
+
+function PasscodePage({
+ configured,
+ error,
+ pending,
+ onUnlock,
+}:{
+ configured:boolean;
+ error:string;
+ pending:boolean;
+ onUnlock:(passcode:string)=>Promise<void>;
+}){
+ const [passcode,setPasscode]=useState('');
+ const submit=(event:FormEvent<HTMLFormElement>)=>{
+  event.preventDefault();
+  void onUnlock(passcode);
+ };
+ return <main className="auth-landing passcode-page">
   <section className="auth-story">
    <div className="auth-brand"><span className="auth-brand-mark"><Check size={19}/></span><span>daybook</span></div>
    <p className="auth-kicker">A PRIVATE SPACE FOR YOUR EVERYDAY</p>
    <h1>Make room for the life you’re building.</h1>
-   <p className="auth-description">Keep daily tasks, learning, spending, meals, and training in one calm place. See your patterns without turning your day into another project.</p>
+   <p className="auth-description">Your daily tasks, learning, spending, meals, and training in one calm place.</p>
    <div className="auth-features">
     <div className="auth-feature"><span className="auth-feature-mark"/>Daily tasks and study modules</div>
     <div className="auth-feature"><span className="auth-feature-mark"/>Food, macros, and gym progress</div>
@@ -204,69 +201,98 @@ function LandingPage(){
     <div className="auth-feature"><span className="auth-feature-mark"/>Optional Telegram reminders</div>
    </div>
   </section>
-  <section className="auth-card-wrap">
-   <h2>Start with today</h2>
-   <p>Your main tracker data stays in this browser.</p>
-   <div className="auth-actions">
-    <Link href="/sign-up" className="auth-action-primary">Create your account</Link>
-    <Link href="/sign-in" className="auth-action-secondary">Sign in</Link>
-   </div>
-   <div className="auth-local-note"><Check size={15}/><span>Only the Telegram settings and task/module reminder checklist are stored on the server. Reminder credentials are encrypted.</span></div>
+  <section className="auth-card-wrap passcode-card">
+   <h2>Unlock your tracker</h2>
+   <p>Enter your passcode to continue.</p>
+   {!configured && <p className="passcode-message" role="alert">Passcode access is not configured on the server yet.</p>}
+   <form className="passcode-form" onSubmit={submit}>
+    <label htmlFor="tracker-passcode">Passcode</label>
+    <input
+     id="tracker-passcode"
+     data-testid="tracker-passcode"
+     type="password"
+     inputMode="numeric"
+     autoComplete="current-password"
+     value={passcode}
+     onChange={(event)=>setPasscode(event.target.value)}
+     maxLength={128}
+     required
+     aria-describedby={error ? "passcode-error" : undefined}
+    />
+    {error && <p className="passcode-message" id="passcode-error" role="alert">{error}</p>}
+    <button
+     className="auth-action-primary"
+     data-testid="unlock-tracker"
+     type="submit"
+     disabled={!configured || pending || passcode.length < 4}
+    >
+     {pending ? "Checking passcode…" : "Unlock tracker"}
+    </button>
+   </form>
+   <div className="auth-local-note"><Check size={15}/><span>Your main tracker records stay in this browser. Telegram reminder settings are stored on the server with encrypted credentials.</span></div>
   </section>
  </main>
 }
-function SignInPage(){
- return <main className="auth-screen"><SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /></main>;
+
+function AuthUnavailable({onRetry}:{onRetry:()=>void}){
+ return <main className="auth-screen">
+  <section className="auth-card-wrap passcode-card">
+   <h2>Tracker unavailable</h2>
+   <p>Passcode access could not be checked. Check your connection and try again.</p>
+   <button className="auth-action-primary" type="button" onClick={onRetry}>Try again</button>
+  </section>
+ </main>
 }
-function SignUpPage(){
- return <main className="auth-screen"><SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} /></main>;
+
+function authErrorStatus(error:unknown):number|undefined{
+ if(typeof error!=='object'||error===null||!('status' in error))return undefined;
+ const status=(error as {status?:unknown}).status;
+ return typeof status==='number'?status:undefined;
 }
-function ClerkQueryClientCacheInvalidator(){
- const {addListener}=useClerk();
- const client=useQueryClient();
- const previousUserId=useRef<string|null|undefined>(undefined);
- useEffect(()=>{
-  const unsubscribe=addListener(({user})=>{
-   const userId=user?.id??null;
-   if(previousUserId.current!==undefined&&previousUserId.current!==userId)client.clear();
-   previousUserId.current=userId;
-  });
-  return unsubscribe;
- },[addListener,client]);
- return null;
-}
-function stripBase(path:string){
- return basePath&&path.startsWith(basePath)?path.slice(basePath.length)||'/':path;
-}
-function ClerkProviderWithRoutes(){
+
+function AuthGate(){
+ const session=useGetLifeTrackerSession({query:{queryKey:getGetLifeTrackerSessionQueryKey(),retry:false,refetchOnWindowFocus:false}});
+ const unlock=useUnlockLifeTracker();
+ const logout=useLogoutLifeTracker();
+ const queryClient=useQueryClient();
  const [,setLocation]=useLocation();
- if(!clerkPubKey)throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY for sign-in.');
- return <ClerkProvider
-  publishableKey={clerkPubKey}
-  proxyUrl={clerkProxyUrl}
-  appearance={clerkAppearance}
-  signInUrl={`${basePath}/sign-in`}
-  signUpUrl={`${basePath}/sign-up`}
-  routerPush={to=>setLocation(stripBase(to))}
-  routerReplace={to=>setLocation(stripBase(to),{replace:true})}
- >
-  <QueryClientProvider client={queryClient}>
-   <ClerkQueryClientCacheInvalidator/>
-   <Switch>
-    <Route path="/" component={HomeRedirect}/>
-    <Route path="/sign-in/*?" component={SignInPage}/>
-    <Route path="/sign-up/*?" component={SignUpPage}/>
-    <Route path="/user-portal/*?" component={AuthenticatedTracker}/>
-    <Route path="/money" component={AuthenticatedTracker}/>
-    <Route path="/study" component={AuthenticatedTracker}/>
-    <Route path="/health" component={AuthenticatedTracker}/>
-    <Route path="/settings" component={AuthenticatedTracker}/>
-    <Route component={HomeRedirect}/>
-   </Switch>
-  </QueryClientProvider>
- </ClerkProvider>;
+ const [loginError,setLoginError]=useState('');
+ const handleUnlock=async(passcode:string)=>{
+  setLoginError('');
+  try{
+   const result=await unlock.mutateAsync({data:{passcode}});
+   queryClient.setQueryData(getGetLifeTrackerSessionQueryKey(),result);
+  }catch(error){
+   const status=authErrorStatus(error);
+   setLoginError(status===401?'That passcode was not accepted.'
+    :status===429?'Too many attempts. Wait a little before trying again.'
+    :status===503?'Passcode access is not configured on the server yet.'
+    :'Could not check the passcode. Please try again.');
+  }
+ };
+ const handleSignOut=async()=>{
+  await logout.mutateAsync();
+  queryClient.clear();
+  queryClient.setQueryData(getGetLifeTrackerSessionQueryKey(),{configured:true,authenticated:false});
+  setLocation('/');
+ };
+
+ if(session.isPending)return <AuthLoading/>;
+ if(session.isError)return <AuthUnavailable onRetry={()=>{void session.refetch()}}/>;
+ if(!session.data?.authenticated){
+  return <PasscodePage
+   configured={session.data?.configured??false}
+   error={loginError}
+   pending={unlock.isPending}
+   onUnlock={handleUnlock}
+  />;
+ }
+ return <TrackerRouter onSignOut={handleSignOut}/>;
 }
+
 function App(){
- return <WouterRouter base={basePath}><ClerkProviderWithRoutes/></WouterRouter>;
+ return <WouterRouter base={basePath}>
+  <QueryClientProvider client={queryClient}><AuthGate/></QueryClientProvider>
+ </WouterRouter>;
 }
 export default App;
