@@ -399,6 +399,9 @@ components:
         mimeType:
           type: string
           enum: [image/jpeg, image/png, image/webp]
+        provider:
+          type: string
+          enum: [openai, anthropic]
       required:
         - imageBase64
         - mimeType
@@ -482,6 +485,17 @@ components:
         remainingProtein:
           type: number
           minimum: 0
+        remainingCarbs:
+          type: number
+          minimum: 0
+          description: Remaining grams of carbs only when a carb target has been set
+        remainingFat:
+          type: number
+          minimum: 0
+          description: Remaining grams of fat only when a fat target has been set
+        provider:
+          type: string
+          enum: [openai, anthropic]
         eatenToday:
           type: array
           items:

@@ -101,7 +101,8 @@ export const readLifeNutritionLabelBodyImageBase64Max = 8000000;
 
 export const ReadLifeNutritionLabelBody = zod.object({
   "imageBase64": zod.string().max(readLifeNutritionLabelBodyImageBase64Max),
-  "mimeType": zod.enum(['image/jpeg', 'image/png', 'image/webp'])
+  "mimeType": zod.enum(['image/jpeg', 'image/png', 'image/webp']),
+  "provider": zod.enum(['openai', 'anthropic']).optional()
 })
 
 export const readLifeNutritionLabelResponseFoodNameMax = 200;
@@ -175,6 +176,10 @@ export const createLifeMealPlanBodyRemainingCaloriesMin = 0;
 
 export const createLifeMealPlanBodyRemainingProteinMin = 0;
 
+export const createLifeMealPlanBodyRemainingCarbsMin = 0;
+
+export const createLifeMealPlanBodyRemainingFatMin = 0;
+
 export const createLifeMealPlanBodyEatenTodayItemNameMax = 200;
 
 export const createLifeMealPlanBodyEatenTodayItemCaloriesMin = 0;
@@ -193,6 +198,9 @@ export const CreateLifeMealPlanBody = zod.object({
   "ingredients": zod.string().min(createLifeMealPlanBodyIngredientsMin).max(createLifeMealPlanBodyIngredientsMax),
   "remainingCalories": zod.number().min(createLifeMealPlanBodyRemainingCaloriesMin),
   "remainingProtein": zod.number().min(createLifeMealPlanBodyRemainingProteinMin),
+  "remainingCarbs": zod.number().min(createLifeMealPlanBodyRemainingCarbsMin).optional().describe('Remaining grams of carbs only when a carb target has been set'),
+  "remainingFat": zod.number().min(createLifeMealPlanBodyRemainingFatMin).optional().describe('Remaining grams of fat only when a fat target has been set'),
+  "provider": zod.enum(['openai', 'anthropic']).optional(),
   "eatenToday": zod.array(zod.object({
   "name": zod.string().max(createLifeMealPlanBodyEatenTodayItemNameMax),
   "calories": zod.number().min(createLifeMealPlanBodyEatenTodayItemCaloriesMin),

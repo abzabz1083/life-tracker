@@ -84,10 +84,19 @@ export const NutritionLabelPhotoMimeType = {
   'image/webp': 'image/webp',
 } as const;
 
+export type NutritionLabelPhotoProvider = typeof NutritionLabelPhotoProvider[keyof typeof NutritionLabelPhotoProvider];
+
+
+export const NutritionLabelPhotoProvider = {
+  openai: 'openai',
+  anthropic: 'anthropic',
+} as const;
+
 export interface NutritionLabelPhoto {
   /** @maxLength 8000000 */
   imageBase64: string;
   mimeType: NutritionLabelPhotoMimeType;
+  provider?: NutritionLabelPhotoProvider;
 }
 
 export interface NutritionLabel {
@@ -142,6 +151,14 @@ export interface MealMacroSummary {
   fat: number;
 }
 
+export type LifeMealPlanInputProvider = typeof LifeMealPlanInputProvider[keyof typeof LifeMealPlanInputProvider];
+
+
+export const LifeMealPlanInputProvider = {
+  openai: 'openai',
+  anthropic: 'anthropic',
+} as const;
+
 export interface LifeMealPlanInput {
   /**
      * @minLength 2
@@ -152,6 +169,17 @@ export interface LifeMealPlanInput {
   remainingCalories: number;
   /** @minimum 0 */
   remainingProtein: number;
+  /**
+     * Remaining grams of carbs only when a carb target has been set
+     * @minimum 0
+     */
+  remainingCarbs?: number;
+  /**
+     * Remaining grams of fat only when a fat target has been set
+     * @minimum 0
+     */
+  remainingFat?: number;
+  provider?: LifeMealPlanInputProvider;
   /** @maxItems 30 */
   eatenToday: MealMacroSummary[];
 }

@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { NutritionLabelPhotoMimeType } from './nutritionLabelPhotoMimeType';
+import type { NutritionLabelPhotoProvider } from './nutritionLabelPhotoProvider';
 
 export interface NutritionLabelPhoto {
   /** @maxLength 8000000 */
   imageBase64: string;
   mimeType: NutritionLabelPhotoMimeType;
+  provider?: NutritionLabelPhotoProvider;
 }

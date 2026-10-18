@@ -8,6 +8,7 @@ import {
   LoaderCircle,
   LogOut,
   Settings2,
+  Sparkles,
   Wallet,
 } from "lucide-react";
 import {
@@ -317,6 +318,28 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
               onChange={(event) => change("proteinTarget", Number(event.target.value) || 0)}
             />
           </label>
+          <label className="settings-field">
+            <span>Daily carbohydrates target (g)</span>
+            <input
+              data-testid="setting-carbs-target"
+              type="number"
+              min="0"
+              value={data.settings.carbsTarget || ""}
+              onChange={(event) => change("carbsTarget", Number(event.target.value) || 0)}
+              placeholder="Set a target"
+            />
+          </label>
+          <label className="settings-field">
+            <span>Daily fat target (g)</span>
+            <input
+              data-testid="setting-fat-target"
+              type="number"
+              min="0"
+              value={data.settings.fatTarget || ""}
+              onChange={(event) => change("fatTarget", Number(event.target.value) || 0)}
+              placeholder="Set a target"
+            />
+          </label>
           <div className="settings-field-pair">
             <label className="settings-field">
               <span>Default meal time</span>
@@ -335,6 +358,29 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
               />
             </label>
           </div>
+        </section>
+
+        <section className="settings-card">
+          <div className="settings-card-heading">
+            <span><Sparkles size={18} /></span>
+            <div><h2>Nutrition AI</h2><p>Choose which assistant reads package labels and plans meals.</p></div>
+          </div>
+          <div className="settings-ai-choice">
+            <div>
+              <strong>Claude</strong>
+              <p>When enabled, your package photos and meal requests use Claude through Replit AI. Your Claude.ai subscription is not linked; usage is billed to Replit credits, and no personal API key is needed.</p>
+            </div>
+            <button
+              className={data.settings.nutritionAiProvider === "anthropic" ? "settings-ai-toggle is-enabled" : "settings-ai-toggle"}
+              type="button"
+              data-testid="setting-claude-ai"
+              aria-pressed={data.settings.nutritionAiProvider === "anthropic"}
+              onClick={() => change("nutritionAiProvider", data.settings.nutritionAiProvider === "anthropic" ? "openai" : "anthropic")}
+            >
+              {data.settings.nutritionAiProvider === "anthropic" ? "Claude on" : "Use Claude"}
+            </button>
+          </div>
+          <p className="settings-helper">Food search remains based on USDA FoodData Central and Open Food Facts. AI will not create database nutrition values.</p>
         </section>
 
         <section className="settings-card settings-reminder-card">

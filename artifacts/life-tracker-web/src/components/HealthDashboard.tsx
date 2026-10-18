@@ -15,7 +15,7 @@ import "./HealthDashboard.css";
 
 type Props = { data: LifeData; update: <K extends keyof LifeData>(key: K, value: LifeData[K]) => void };
 type MacroFood = Pick<NutritionFood, "id" | "name" | "source" | "calories" | "protein" | "carbs" | "fat">;
-type LabelDraft = { name: string; servingGrams: number; calories: number; protein: number; carbs: number; fat: number };
+type LabelDraft = { name: string; servingGrams: number; calories: number; protein: number; carbs: number; fat: number; labelNotes: string };
 type SuggestedFood = { food: string; grams: number; reason: string; matches: MacroFood[]; selected?: MacroFood; loading: boolean; error?: string };
 type Tab = "food" | "training";
 const nowTime = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -88,6 +88,18 @@ function Empty({ title, text }: { title: string; text: string }) {
 function ErrorNote({ children }: { children: React.ReactNode }) { return <p className="hd-error" role="alert">{children}</p>; }
 function macros(food: Pick<MacroFood, "calories" | "protein" | "carbs" | "fat">, grams: number) {
   return { calories: Math.round(nutrientFactor(food.calories, grams)), protein: round1(nutrientFactor(food.protein, grams)), carbs: round1(nutrientFactor(food.carbs, grams)), fat: round1(nutrientFactor(food.fat, grams)) };
+}
+function targetStatus(current: number, target: number, mode: "limit" | "goal") {
+  if (target <= 0) return { state: "unset", label: "Target not set" };
+  if (mode === "goal") {
+    return current >= target
+      ? { state: "goal-met", label: "Goal reached" }
+      : { state: "goal-in-progress", label: `${round1(target - current)} g to goal` };
+  }
+  const ratio = current / target;
+  if (ratio > 1) return { state: "over", label: `${round1(current - target)} over target` };
+  if (ratio >= .9) return { state: "near", label: "Near limit" };
+  return { state: "on-track", label: "On track" };
 }
 function updateCheck(data: LifeData, update: Props["update"], date: string, field: "gym" | "diet", value: DayCheckIn["gym"] | DayCheckIn["diet"]) {
   const existing = data.dayChecks.find(item => item.date === date);
@@ -164,6 +176,12 @@ export function HealthDashboard({ data, update }: Props) {
   }), { calories: 0, protein: 0, carbs: 0, fat: 0 }), [todayMeals]);
   const remainingCalories = Math.max(0, data.settings.calorieTarget - totals.calories);
   const remainingProtein = Math.max(0, data.settings.proteinTarget - totals.protein);
+  const nutritionTargets = [
+    { name: "Calories", current: totals.calories, target: data.settings.calorieTarget, unit: "kcal", mode: "limit" as const },
+    { name: "Protein", current: totals.protein, target: data.settings.proteinTarget, unit: "g", mode: "goal" as const },
+    { name: "Carbs", current: totals.carbs, target: data.settings.carbsTarget, unit: "g", mode: "limit" as const },
+    { name: "Fat", current: totals.fat, target: data.settings.fatTarget, unit: "g", mode: "limit" as const },
+  ];
 
   useEffect(() => {
     let alive = true;
@@ -206,7 +224,7 @@ export function HealthDashboard({ data, update }: Props) {
       const found = await search(query);
       setResults(found);
       if (!found.length) setFoodError("No matches found. You can enter values from a verified label or save a package label photo.");
-    } catch { setFoodError("Food search is unavailable right now. Please try again."); }
+    } catch { setFoodError("The food databases could not be reached. Try again, enter values from the packet, or use the package-photo reader."); }
     finally { setSearching(false); }
   }
   function createMeal(food: MacroFood | SavedFood, amount = Number(grams), time = mealTime, name = food.name, photoKey?: string) {
@@ -236,8 +254,8 @@ export function HealthDashboard({ data, update }: Props) {
       setLabelPhoto(image);
       if (labelPreview) URL.revokeObjectURL(labelPreview);
       setLabelPreview(URL.createObjectURL(image));
-      const result = await readLabel.mutateAsync({ data: { imageBase64: await toInputImage(image), mimeType: "image/jpeg" } });
-      setLabelDraft({ name: result.foodName, servingGrams: result.servingGrams, calories: result.calories, protein: result.protein, carbs: result.carbs, fat: result.fat });
+      const result = await readLabel.mutateAsync({ data: { imageBase64: await toInputImage(image), mimeType: "image/jpeg", provider: data.settings.nutritionAiProvider } });
+      setLabelDraft({ name: result.foodName, servingGrams: result.servingGrams, calories: result.calories, protein: result.protein, carbs: result.carbs, fat: result.fat, labelNotes: result.labelNotes });
     } catch (error) {
       setLabelError(error instanceof Error ? error.message : "The label could not be read. Try a clearer photo.");
     }
@@ -333,6 +351,9 @@ export function HealthDashboard({ data, update }: Props) {
     try {
       const plan = await createPlan.mutateAsync({ data: {
         ingredients: helperPrompt.trim(), remainingCalories, remainingProtein,
+        ...(data.settings.carbsTarget > 0 ? { remainingCarbs: Math.max(0, data.settings.carbsTarget - totals.carbs) } : {}),
+        ...(data.settings.fatTarget > 0 ? { remainingFat: Math.max(0, data.settings.fatTarget - totals.fat) } : {}),
+        provider: data.settings.nutritionAiProvider,
         eatenToday: todayMeals.slice(0, 30).map(meal => ({ name: meal.name, calories: meal.calories, protein: meal.protein, carbs: meal.carbs, fat: meal.fat })),
       } });
       setMealPlanTitle(plan.title);
@@ -460,13 +481,23 @@ export function HealthDashboard({ data, update }: Props) {
     {tab === "food" ? <div className="hd-food-view">
       <div className="hd-food-main">
         <Panel className="hd-intake">
-          <div className="hd-intake-heading"><div><span className="hd-kicker">TODAY · NUTRITION</span><strong>{Math.round(totals.calories).toLocaleString()} <small>kcal</small></strong><span>of {data.settings.calorieTarget.toLocaleString()} kcal target</span></div><div className="hd-intake-ring" style={{ "--amount": `${Math.min(100, totals.calories / Math.max(1, data.settings.calorieTarget) * 100)}%` } as React.CSSProperties}><Heart size={19}/></div></div>
-          <div className="hd-track"><i style={{ width: `${Math.min(100, totals.calories / Math.max(1, data.settings.calorieTarget) * 100)}%` }}/></div>
-          <div className="hd-macro-strip"><div><small>PROTEIN</small><b>{Math.round(totals.protein)} <i>/ {data.settings.proteinTarget}g</i></b></div><div><small>CARBS</small><b>{Math.round(totals.carbs)} <i>g</i></b></div><div><small>FAT</small><b>{Math.round(totals.fat)} <i>g</i></b></div></div>
+          <div className="hd-intake-heading"><div><span className="hd-kicker">TODAY · NUTRITION</span><strong>{Math.round(totals.calories).toLocaleString()} <small>kcal</small></strong><span>Daily intake compared with your saved targets</span></div><div className={`hd-intake-ring status-${targetStatus(totals.calories, data.settings.calorieTarget, "limit").state}`} style={{ "--amount": `${Math.min(100, totals.calories / Math.max(1, data.settings.calorieTarget) * 100)}%` } as React.CSSProperties}><Heart size={19}/></div></div>
+          <div className="hd-target-grid">
+            {nutritionTargets.map(metric => {
+              const status = targetStatus(metric.current, metric.target, metric.mode);
+              const percent = metric.target > 0 ? Math.min(100, metric.current / metric.target * 100) : 0;
+              return <div className={`hd-target-metric status-${status.state}`} key={metric.name}>
+                <div className="hd-target-label"><span>{metric.name}</span><small>{status.label}</small></div>
+                <b>{Math.round(metric.current).toLocaleString()} <i>/ {metric.target > 0 ? `${metric.target.toLocaleString()} ${metric.unit}` : "set in Settings"}</i></b>
+                <div className="hd-target-track" role="progressbar" aria-label={`${metric.name} target progress`} aria-valuemin={0} aria-valuemax={metric.target || 1} aria-valuenow={Math.min(metric.current, metric.target || 1)}><i style={{ width: `${percent}%` }}/></div>
+              </div>;
+            })}
+          </div>
+          <p className="hd-honesty-note">{todayMeals.length ? "Status compares logged food with your saved targets; meals you have not logged are not counted." : "No meals logged today, so I can’t assess your intake yet."} Search results are database estimates; check packet labels when precision matters.</p>
         </Panel>
         <Panel>
           <PanelHeading icon={<Plus size={16}/>} label="FOOD DATABASE" title="Log a meal"/>
-          <p className="hd-copy">Search USDA FoodData Central first, then Open Food Facts. Nutrition is returned per 100 g and scaled to your portion.</p>
+          <p className="hd-copy">Search USDA FoodData Central first, then Open Food Facts. Values are per 100 g and scaled to your portion. Packaged-food data can be incomplete; a label photo is better for your exact product.</p>
           <form onSubmit={lookupFood}>
             <Field label="Food or product" value={query} onChange={setQuery} placeholder="Search food or brand" id="hd-food-search"/>
             <div className="hd-field-row"><Field label="Serving (g)" type="number" min="1" step="1" value={grams} onChange={setGrams} id="hd-food-grams"/><Field label="Meal time" type="time" value={mealTime} onChange={setMealTime} id="hd-food-time"/></div>
@@ -483,7 +514,7 @@ export function HealthDashboard({ data, update }: Props) {
           <label className="hd-upload"><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event: ChangeEvent<HTMLInputElement>) => { void transcribeLabel(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }}/>{readLabel.isPending ? <LoaderCircle className="hd-spin" size={19}/> : <Camera size={19}/>}<span><b>{readLabel.isPending ? "Reading package…" : "Take or choose a photo"}</b><small>JPEG, PNG or WebP · stored on this device</small></span></label>
           {labelPreview && <img className="hd-label-preview" src={labelPreview} alt="Package label being reviewed"/>}
           {labelError && <ErrorNote>{labelError}</ErrorNote>}
-          {labelDraft && <form className="hd-label-review" onSubmit={saveLabelFood}><div className="hd-review-title"><strong>Check the label values</strong><span>Transcribed values may need correction.</span></div><Field label="Product name" value={labelDraft.name} onChange={name => setLabelDraft({ ...labelDraft, name })}/><Field label="Serving size (g)" type="number" min=".1" step=".1" value={String(labelDraft.servingGrams)} onChange={value => setLabelDraft({ ...labelDraft, servingGrams: Number(value) })}/><div className="hd-field-row">{(["calories", "protein", "carbs", "fat"] as const).map(key => <Field key={key} label={`${key === "calories" ? "Calories (kcal)" : `${key[0].toUpperCase()}${key.slice(1)} (g)`}`} type="number" min="0" step=".1" value={String(labelDraft[key])} onChange={value => setLabelDraft({ ...labelDraft, [key]: Number(value) })}/>)}</div><p className="hd-copy">Values above are for {labelDraft.servingGrams} g. Saved-food macros are converted to per 100 g.</p><button type="submit" className="hd-primary"><Check size={15}/>Save product and photo</button></form>}
+          {labelDraft && <form className="hd-label-review" onSubmit={saveLabelFood}><div className="hd-review-title"><strong>Check the label values</strong><span>Transcribed values may need correction.</span></div>{labelDraft.labelNotes && <p className="hd-copy hd-label-notes">{labelDraft.labelNotes}</p>}<Field label="Product name" value={labelDraft.name} onChange={name => setLabelDraft({ ...labelDraft, name })}/><Field label="Serving size (g)" type="number" min=".1" step=".1" value={String(labelDraft.servingGrams)} onChange={value => setLabelDraft({ ...labelDraft, servingGrams: Number(value) })}/><div className="hd-field-row">{(["calories", "protein", "carbs", "fat"] as const).map(key => <Field key={key} label={`${key === "calories" ? "Calories (kcal)" : `${key[0].toUpperCase()}${key.slice(1)} (g)`}`} type="number" min="0" step=".1" value={String(labelDraft[key])} onChange={value => setLabelDraft({ ...labelDraft, [key]: Number(value) })}/>)}</div><p className="hd-copy">Values above are for {labelDraft.servingGrams} g. Saved-food macros are converted to per 100 g. Check the packet before saving.</p><button type="submit" className="hd-primary"><Check size={15}/>Save product and photo</button></form>}
         </Panel>
       </div>
       <aside className="hd-food-side">
@@ -503,7 +534,7 @@ export function HealthDashboard({ data, update }: Props) {
         <div className="hd-template-grid">
           <div className="hd-template-builder">
             <Field label="Template name" value={templateName} onChange={setTemplateName} placeholder="e.g. Post-workout bowl"/>
-            <div className="hd-template-search"><Field label="Find an ingredient" value={templateQuery} onChange={setTemplateQuery} placeholder="Search USDA or food brands"/><div className="hd-field-row"><Field label="Portion (g)" value={templateGrams} onChange={setTemplateGrams} type="number" min="1"/></div><button type="button" className="hd-secondary" disabled={templateQuery.trim().length < 2} onClick={async () => { try { setTemplateSearch(await search(templateQuery)); } catch { setFoodError("Ingredient search is unavailable."); } }}><Search size={15}/>Find ingredient</button></div>
+            <div className="hd-template-search"><Field label="Find an ingredient" value={templateQuery} onChange={setTemplateQuery} placeholder="Search USDA or food brands"/><div className="hd-field-row"><Field label="Portion (g)" value={templateGrams} onChange={setTemplateGrams} type="number" min="1"/></div><button type="button" className="hd-secondary" disabled={templateQuery.trim().length < 2} onClick={async () => { try { setTemplateSearch(await search(templateQuery)); } catch { setFoodError("The food databases could not be reached. Try again or use a saved product or package photo."); } }}><Search size={15}/>Find ingredient</button></div>
             {templateSearch.map(food => <div className="hd-result" key={food.id}><div><b>{food.name}</b><small>{food.source} · {Math.round(food.calories)} kcal per 100 g</small></div><button className="hd-small-button" type="button" onClick={() => void addTemplateFood(food)}>Add</button></div>)}
              {data.savedFoods.length > 0 && <div className="hd-saved-ingredients"><span className="hd-kicker">SAVED PRODUCTS</span>{data.savedFoods.map(food => <div className="hd-result" key={food.id}><div><b>{food.name}</b><small>{food.source} · {Math.round(food.caloriesPer100)} kcal per 100 g</small></div><button className="hd-small-button" type="button" onClick={() => addSavedTemplateFood(food)}>Add</button></div>)}</div>}
             {templateIngredients.length > 0 && <div className="hd-ingredient-list">{templateIngredients.map(item => <div className="hd-ingredient" key={item.id}><div><b>{item.name}</b><small>{item.source}</small></div><label><span className="sr-only">Grams of {item.name}</span><input aria-label={`Grams of ${item.name}`} type="number" min="1" value={item.grams} onChange={event => setTemplateIngredients(current => current.map(entry => entry.id === item.id ? { ...entry, grams: Number(event.target.value) } : entry))}/><span>g</span></label><button className="hd-icon-button" type="button" aria-label={`Remove ${item.name}`} onClick={() => setTemplateIngredients(current => current.filter(entry => entry.id !== item.id))}><X size={15}/></button></div>)}</div>}
@@ -520,7 +551,7 @@ export function HealthDashboard({ data, update }: Props) {
       <Panel className="hd-helper-panel">
         <PanelHeading icon={<Sparkles size={16}/>} label="MEAL HELPER" title="Use what you have"/>
         <p className="hd-copy">Suggestions account for your remaining target and today’s log. Every food is checked against a nutrition database before you can add it; suggested portions are a starting point, not exact macros.</p>
-        <form className="hd-helper-form" onSubmit={buildMealPlan}><Field label="Ingredients or preferences" value={helperPrompt} onChange={setHelperPrompt} placeholder="What’s in your kitchen? Any preferences?"/><Field label="Meal time" value={helperTime} onChange={setHelperTime} type="time"/><div className="hd-remaining">Remaining today <b>{Math.round(remainingCalories)} kcal</b><b>{Math.round(remainingProtein)} g protein</b></div><button className="hd-primary" disabled={createPlan.isPending || helperPrompt.trim().length < 2} type="submit">{createPlan.isPending ? <LoaderCircle size={16} className="hd-spin"/> : <Sparkles size={16}/>}Suggest a meal</button></form>
+        <form className="hd-helper-form" onSubmit={buildMealPlan}><Field label="Ingredients or preferences" value={helperPrompt} onChange={setHelperPrompt} placeholder="What’s in your kitchen? Any preferences?"/><Field label="Meal time" value={helperTime} onChange={setHelperTime} type="time"/><div className="hd-remaining">Remaining today <b>{Math.round(remainingCalories)} kcal</b><b>{Math.round(remainingProtein)} g protein</b>{data.settings.carbsTarget > 0 && <b>{Math.round(Math.max(0, data.settings.carbsTarget - totals.carbs))} g carbs</b>}{data.settings.fatTarget > 0 && <b>{Math.round(Math.max(0, data.settings.fatTarget - totals.fat))} g fat</b>}</div><button className="hd-primary" disabled={createPlan.isPending || helperPrompt.trim().length < 2} type="submit">{createPlan.isPending ? <LoaderCircle size={16} className="hd-spin"/> : <Sparkles size={16}/>}Suggest a meal</button></form>
         {helperError && <ErrorNote>{helperError}</ErrorNote>}
          {suggestions.length > 0 && <div className="hd-suggestions"><div className="hd-suggestion-heading"><b>{mealPlanTitle || "Verify each ingredient"}</b><span>{mealPlanNote || "Choose the closest database match."}</span></div>{suggestions.map((item, index) => <div className="hd-suggestion" key={`${index}-${item.food}`}><div className="hd-suggestion-name"><b>{item.food}</b><span>{item.grams} g suggested · {item.reason}</span></div><div className="hd-verify-row"><input aria-label={`Search match for ${item.food}`} defaultValue={item.food} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void verifySuggestion(index, event.currentTarget.value); } }}/><button className="hd-secondary" type="button" disabled={item.loading} onClick={event => { const input = event.currentTarget.previousElementSibling as HTMLInputElement; void verifySuggestion(index, input.value); }}>{item.loading ? <LoaderCircle size={14} className="hd-spin"/> : <Search size={14}/>}Verify</button></div>{item.error && <ErrorNote>{item.error}</ErrorNote>}{item.matches.length > 0 && <label className="hd-select-match"><span>Database match</span><select value={item.selected?.id ?? ""} onChange={event => setSuggestions(current => current.map((entry, i) => i === index ? { ...entry, selected: entry.matches.find(match => match.id === event.target.value) } : entry))}><option value="">Choose a food to confirm</option>{item.matches.map(match => <option value={match.id} key={match.id}>{match.name} · {match.source}</option>)}</select></label>}{item.selected && <small className="hd-verified-macros">At {item.grams} g: {macros(item.selected, item.grams).calories} kcal · P {macros(item.selected, item.grams).protein} · C {macros(item.selected, item.grams).carbs} · F {macros(item.selected, item.grams).fat} g</small>}</div>)}<div className="hd-action-row"><button className="hd-primary" type="button" disabled={!suggestions.some(item => item.selected)} onClick={logPlan}><Check size={15}/>Log verified items</button><button className="hd-secondary" type="button" onClick={() => setSuggestions([])}>Dismiss</button></div></div>}
       </Panel>

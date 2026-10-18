@@ -50,3 +50,11 @@
 .settings-account-card .settings-secondary-button { margin-top: 12px; }
 @media (max-width: 720px) { .settings-dashboard-grid { grid-template-columns: 1fr; } .settings-reminder-card,.settings-account-card { grid-column: auto; } .settings-card { padding: 17px; } }
 @media (max-width: 460px) { .settings-field-pair { grid-template-columns: 1fr; gap: 0; } }
+.settings-ai-choice { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px; border:1px solid hsl(var(--border)); border-radius:12px; background:hsl(var(--background)); }
+.settings-ai-choice>div { min-width:0; }
+.settings-ai-choice strong { color:hsl(var(--foreground)); font-size:13px; }
+.settings-ai-choice p { margin:5px 0 0; color:hsl(var(--muted-foreground)); font-size:11px; line-height:1.55; }
+.settings-ai-toggle { flex:none; min-height:36px; border:1px solid hsl(var(--border)); border-radius:9px; padding:0 12px; background:hsl(var(--card)); color:hsl(var(--foreground)); font:inherit; font-size:11px; font-weight:650; cursor:pointer; }
+.settings-ai-toggle.is-enabled { border-color:#60816b; background:#edf3ed; color:#375a43; }
+.settings-ai-toggle:focus-visible { outline:3px solid hsl(var(--primary) / 25%); outline-offset:2px; }
+@media(max-width:460px) { .settings-ai-choice { align-items:flex-start; flex-direction:column; } }

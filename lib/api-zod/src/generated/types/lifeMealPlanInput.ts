@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LifeMealPlanInputProvider } from './lifeMealPlanInputProvider';
 import type { MealMacroSummary } from './mealMacroSummary';
 
 export interface LifeMealPlanInput {
@@ -17,6 +18,17 @@ export interface LifeMealPlanInput {
   remainingCalories: number;
   /** @minimum 0 */
   remainingProtein: number;
+  /**
+     * Remaining grams of carbs only when a carb target has been set
+     * @minimum 0
+     */
+  remainingCarbs?: number;
+  /**
+     * Remaining grams of fat only when a fat target has been set
+     * @minimum 0
+     */
+  remainingFat?: number;
+  provider?: LifeMealPlanInputProvider;
   /** @maxItems 30 */
   eatenToday: MealMacroSummary[];
 }

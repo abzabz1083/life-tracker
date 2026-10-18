@@ -120,6 +120,9 @@ export type Settings = {
   monthlySpendingBudget: number;
   calorieTarget: number;
   proteinTarget: number;
+  carbsTarget: number;
+  fatTarget: number;
+  nutritionAiProvider: "openai" | "anthropic";
   mealPrompt: string;
   workoutPrompt: string;
   telegramChatId: string;
@@ -158,6 +161,9 @@ export const createDefaultLifeData = (): LifeData => ({
     monthlySpendingBudget: 0,
     calorieTarget: 2000,
     proteinTarget: 120,
+    carbsTarget: 0,
+    fatTarget: 0,
+    nutritionAiProvider: "openai",
     mealPrompt: "13:00",
     workoutPrompt: "20:00",
     telegramChatId: "",

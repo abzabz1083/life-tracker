@@ -265,3 +265,27 @@
 @media(prefers-reduced-motion:reduce) {
   .health-dashboard *, .health-dashboard *::before, .health-dashboard *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; scroll-behavior:auto !important; }
 }
+.hd-target-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:14px; }
+.hd-target-metric { min-width:0; padding:10px 11px; border:1px solid #dfe4da; border-radius:9px; background:#fbfaf5; }
+.hd-target-label { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px; }
+.hd-target-label>span { color:#66736b; font-size:9px; font-weight:700; }
+.hd-target-label>small { color:#66806c; font-size:8px; white-space:nowrap; }
+.hd-target-metric>b { color:#394844; font-size:11px; }
+.hd-target-metric>b>i { color:#89928b; font-size:8px; font-style:normal; font-weight:500; }
+.hd-target-track { height:4px; margin-top:8px; border-radius:8px; background:#e5e8e0; overflow:hidden; }
+.hd-target-track>i { display:block; height:100%; border-radius:inherit; background:#538262; transition:width .2s,background .2s; }
+.hd-target-metric.status-near .hd-target-label>small,.hd-target-metric.status-over .hd-target-label>small { color:#b2473e; }
+.hd-target-metric.status-near .hd-target-track>i,.hd-target-metric.status-over .hd-target-track>i { background:#bf4e45; }
+.hd-target-metric.status-goal-in-progress .hd-target-label>small { color:#6b7c8e; }
+.hd-target-metric.status-goal-in-progress .hd-target-track>i { background:#728ba2; }
+.hd-target-metric.status-goal-met .hd-target-label>small { color:#4e7a58; }
+.hd-target-metric.status-goal-met .hd-target-track>i { background:#538262; }
+.hd-intake-ring.status-near,.hd-intake-ring.status-over { color:#b2473e; background:conic-gradient(#bf4e45 var(--amount),#eadcd9 0); }
+.hd-target-metric.status-unset .hd-target-label>small { color:#8a918c; }
+.hd-honesty-note { margin:12px 0 0; color:#77827c; font-size:9px; line-height:1.5; }
+.hd-label-notes { padding:9px 10px; border-left:2px solid #bd8b4a; background:#f5f1e8; color:#665a48; }
+@media(max-width:410px) {
+  .hd-target-grid { gap:7px; }
+  .hd-target-metric { padding:9px 8px; }
+  .hd-target-label { align-items:flex-start; flex-direction:column; gap:2px; }
+}

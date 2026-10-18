@@ -10,6 +10,7 @@ import {
   UpdateLifeReminderSettingsBody,
 } from "@workspace/api-zod";
 import { db, lifeReminderConfigs } from "@workspace/db";
+import { anthropic } from "@workspace/integrations-anthropic-ai";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   ensureCompatibleFormat,
@@ -200,13 +201,43 @@ router.post("/life/nutrition-label", aiRateLimit, async (req, res) => {
     return;
   }
 
-  const { imageBase64, mimeType } = parsed.data;
+  const { imageBase64, mimeType, provider } = parsed.data;
   if (imageBase64.length > 8_000_000) {
     res.status(413).json({ error: "Please use a smaller photo." });
     return;
   }
 
   try {
+    if (provider === "anthropic") {
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-5-5",
+        max_tokens: 8192,
+        system:
+          "Read the nutrition facts panel in the supplied food-package photo. Return only a JSON object with foodName, servingGrams, calories, protein, carbs, fat, and labelNotes. Values must be for one labeled serving, not per 100 g. Use grams for servingGrams and for protein, carbs, and fat. Do not estimate unreadable values; explain uncertainty in labelNotes and use 0 only for unreadable numeric values. This is a transcription aid, not a substitute for checking the packet.",
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: "Read the product name, serving size, and nutrition values." },
+            {
+              type: "image",
+              source: { type: "base64", media_type: mimeType, data: imageBase64 },
+            },
+          ],
+        }],
+      });
+      const text = response.content
+        .filter((block) => block.type === "text")
+        .map((block) => block.text)
+        .join("\n");
+      const label = modelJson(text);
+      if (!isNutritionLabel(label)) {
+        res.status(502).json({ error: "The label values could not be read reliably. Try a clearer photo." });
+        return;
+      }
+      res.json(label);
+      return;
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-5.6-luna",
       max_completion_tokens: 700,
@@ -243,7 +274,7 @@ router.post("/life/nutrition-label", aiRateLimit, async (req, res) => {
   }
 });
 
-router.get("/life/nutrition-search", aiRateLimit, async (req, res) => {
+router.get("/life/nutrition-search", async (req, res) => {
   const query = typeof req.query.query === "string" ? req.query.query.trim() : "";
   if (query.length < 2 || query.length > 120) {
     res.status(400).json({ error: "Enter at least two characters to search." });
@@ -316,16 +347,10 @@ router.get("/life/nutrition-search", aiRateLimit, async (req, res) => {
   }
 
   try {
-    const url = new URL("https://world.openfoodfacts.org/cgi/search.pl");
+    const url = new URL("https://us.openfoodfacts.org/api/v2/search");
     url.searchParams.set("search_terms", query);
-    url.searchParams.set("search_simple", "1");
-    url.searchParams.set("action", "process");
-    url.searchParams.set("json", "1");
     url.searchParams.set("page_size", "8");
-    url.searchParams.set(
-      "fields",
-      "code,product_name,nutriments",
-    );
+    url.searchParams.set("fields", "code,product_name,nutriments");
     const response = await fetch(url, {
       headers: { "user-agent": "LifeTracker nutrition lookup" },
       signal: AbortSignal.timeout(8_000),
@@ -386,7 +411,36 @@ router.post("/life/meal-plan", aiRateLimit, async (req, res) => {
   }
 
   try {
-    const { ingredients, remainingCalories, remainingProtein, eatenToday } = parsed.data;
+      const { ingredients, remainingCalories, remainingProtein, remainingCarbs, remainingFat, eatenToday, provider } = parsed.data;
+      const planningInstruction =
+        "You are a practical meal-planning assistant. Suggest one meal using only the foods the user asked for, with sensible amounts in grams. Use the provided remaining calorie, protein, carbohydrate, and fat targets and today's food log as context. Missing carb or fat targets mean no target was set; do not treat them as zero or infer a target. Do not invent nutrition values or claim the meal perfectly hits targets. Return only JSON with title, note, and ingredients (1 to 6 items, each with food, grams, and a short reason). Keep advice non-medical and concise.";
+      const planningContext = JSON.stringify({
+        ingredients,
+        remainingCalories,
+        remainingProtein,
+        remainingCarbs,
+        remainingFat,
+        eatenToday,
+      });
+      if (provider === "anthropic") {
+        const response = await anthropic.messages.create({
+          model: "claude-sonnet-5-5",
+          max_tokens: 8192,
+          system: planningInstruction,
+          messages: [{ role: "user", content: planningContext }],
+        });
+        const text = response.content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text)
+          .join("\n");
+        const suggestion = modelJson(text);
+        if (!isMealPlan(suggestion)) {
+          res.status(502).json({ error: "A meal suggestion could not be created. Please try again." });
+          return;
+        }
+        res.json(suggestion);
+        return;
+      }
     const response = await openai.chat.completions.create({
       model: "gpt-5.6-luna",
       max_completion_tokens: 1000,
@@ -394,16 +448,11 @@ router.post("/life/meal-plan", aiRateLimit, async (req, res) => {
         {
           role: "system",
           content:
-            "You are a practical meal-planning assistant. Suggest one meal using only the foods the user asked for, with sensible amounts in grams. Use the remaining calorie and protein targets and today's food log as context. Do not invent nutrition values or claim the meal perfectly hits targets. Return only JSON with title, note, and ingredients (1 to 6 items, each with food, grams, and a short reason). Keep advice non-medical and concise.",
+            planningInstruction,
         },
         {
           role: "user",
-          content: JSON.stringify({
-            ingredients,
-            remainingCalories,
-            remainingProtein,
-            eatenToday,
-          }),
+          content: planningContext,
         },
       ],
     });
