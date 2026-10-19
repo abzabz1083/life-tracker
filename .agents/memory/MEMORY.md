@@ -3,3 +3,4 @@
 - [Study curriculum and completion history](study-curriculum-and-completion-history.md) — Keep the provided syllabus in Study with its weekday schedule; retain exact completion events for pattern analysis.
 - [Life Tracker passcode access](life-tracker-passcode-access.md) — Keep passcode-only; use a same-origin bearer fallback when embedded browsers block session cookies.
 - [Food tracking accuracy](food-tracking-accuracy.md) — Prioritize label-verified nutrition, make uncertainty visible, and never imply estimates are exact.
+- [GitHub snapshot publishing](github-empty-repo-snapshot.md) — GitHub API snapshot writes may need a seed commit; this is not a history-preserving Git push.
