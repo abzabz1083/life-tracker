@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { Link, useLocation, Router as WouterRouter } from 'wouter';
 import {
   Activity, ArrowDownLeft, ArrowUpRight, AudioLines, BookOpen, Bookmark, Check, CheckCircle2,
-  ChevronRight, Clock3, Dumbbell, FileText, Heart, Home, LoaderCircle,
+  ChevronLeft, ChevronRight, Clock3, Dumbbell, FileText, Heart, Home, LoaderCircle,
   Mic, Plus, Search, Settings2, Sparkles, Trash2, TrendingUp, Wallet, X,
 } from 'lucide-react';
 import {
@@ -17,7 +17,7 @@ import { HealthDashboard } from '@/components/HealthDashboard';
 import { SettingsDashboard } from '@/components/SettingsDashboard';
 import { StudyDashboard } from '@/components/StudyDashboard';
 import { getWordByName, getWordOfWeek } from '@/lib/word-of-week';
-import { inferExpenseCategory } from '@/lib/money-category';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, inferExpenseCategory, normalizeMoneyCategory } from '@/lib/money-category';
 import {
   createDefaultLifeData,
   dateKey,
@@ -38,6 +38,7 @@ import {
   type WorkoutEntry,
 } from '@/lib/life-data';
 import './index.css';
+import './money-history.css';
 import './auth.css';
 import './weekly-review.css';
 import './word-of-week.css';
@@ -96,11 +97,11 @@ function HomePage({data,update}:{data:LifeData;update:<K extends keyof LifeData>
   const record=async()=>{setVoiceError('');if(recording){recorder.current?.stop();setRecording(false);return}try{if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)throw new Error('Voice recording is not supported in this browser.');const stream=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(stream);recorder.current=mr;chunks.current=[];mr.ondataavailable=e=>{if(e.data.size)chunks.current.push(e.data)};mr.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());try{const blob=new Blob(chunks.current,{type:mr.mimeType||'audio/webm'});const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';bytes.forEach(b=>binary+=String.fromCharCode(b));const format=(mr.mimeType.split('/')[1]?.split(';')[0]||'webm') as 'm4a'|'mp3'|'wav'|'webm'|'mp4'|'flac'|'ogg';const result=await transcribe.mutateAsync({data:{audioBase64:btoa(binary),format:['m4a','mp3','wav','webm','mp4','flac','ogg'].includes(format)?format:'webm'}});const text=result.transcript.trim();setTranscript(text);setVoiceCommand(null);setVoiceTaskId('');setVoiceFoods([]);setVoiceFoodId('');if(text){update('voiceNotes',[{id:makeId(),text,createdAt:new Date().toISOString()},...data.voiceNotes]);try{const command=await parseVoice.mutateAsync({data:{transcript:text}});setVoiceCommand(command);const target=command.targetTitle||command.title;const exact=data.tasks.filter(item=>!item.done&&normalizeVoiceTask(item.title)===normalizeVoiceTask(target));setVoiceTaskId(exact.length===1?exact[0].id:'')}catch(error){setVoiceError(error instanceof Error?error.message:'AI could not identify an action. The transcript is saved.')}}}catch(e){setVoiceError(e instanceof Error?e.message:'Could not transcribe this recording.')}};mr.start();setRecording(true)}catch(e){setVoiceError(e instanceof Error?e.message:'Microphone access could not be started.')}}
   const openVoiceTasks=data.tasks.filter(item=>!item.done);
   const targetVoiceTask=voiceCommand?.targetTitle||voiceCommand?.title||'';
-  const voiceMoneyCategory=voiceCommand?.action==='expense'?inferExpenseCategory(voiceCommand.title,voiceCommand.category):voiceCommand?.action==='income'?voiceCommand.category||'Income':'';
+  const voiceMoneyCategory=voiceCommand?.action==='expense'?inferExpenseCategory(voiceCommand.title,voiceCommand.category):voiceCommand?.action==='income'?normalizeMoneyCategory('income',voiceCommand.category,voiceCommand.title):'';
   const exactVoiceTasks=openVoiceTasks.filter(item=>normalizeVoiceTask(item.title)===normalizeVoiceTask(targetVoiceTask));
   const selectedVoiceTaskId=voiceTaskId||(exactVoiceTasks.length===1?exactVoiceTasks[0].id:'');
   const clearVoice=()=>{setTranscript('');setVoiceCommand(null);setVoiceTaskId('');setVoiceFoods([]);setVoiceFoodId('');setVoiceError('')};
-  const saveVoiceAction=async()=>{if(!voiceCommand)return;try{if(voiceCommand.action==='add_task'){update('tasks',[{id:makeId(),title:voiceCommand.title.trim(),done:false,date:dateKey()},...data.tasks]);clearVoice();return}if(voiceCommand.action==='complete_task'){const selected=data.tasks.find(item=>item.id===selectedVoiceTaskId&&!item.done);if(!selected){setVoiceError('Choose the open task you meant to complete.');return}const completedAt=new Date().toISOString();update('tasks',data.tasks.map(item=>item.id===selected.id?{...item,done:true,completedAt}:item));update('completionEvents',[{id:makeId(),kind:'task',itemId:selected.id,title:selected.title,completedAt},...data.completionEvents]);clearVoice();return}if(voiceCommand.action==='income'||voiceCommand.action==='expense'){if(!voiceCommand.amount){setVoiceError('The amount is missing, so nothing was saved.');return}const currency=voiceCommand.currency??data.settings.baseCurrency;const baseAmount=await convert(voiceCommand.amount,currency,data.settings.baseCurrency);const category=voiceCommand.action==='expense'?inferExpenseCategory(voiceCommand.title,voiceCommand.category):voiceCommand.category||'Income';update('money',[{id:makeId(),kind:voiceCommand.action,title:voiceCommand.title||'Voice entry',category,amount:voiceCommand.amount,currency,baseAmount,date:dateKey()},...data.money]);clearVoice();return}setVoiceError('This voice note needs a food lookup before it can be saved.')}catch(error){setVoiceError(error instanceof Error?error.message:'Nothing was saved. Please try again.')}}
+  const saveVoiceAction=async()=>{if(!voiceCommand)return;try{if(voiceCommand.action==='add_task'){update('tasks',[{id:makeId(),title:voiceCommand.title.trim(),done:false,date:dateKey()},...data.tasks]);clearVoice();return}if(voiceCommand.action==='complete_task'){const selected=data.tasks.find(item=>item.id===selectedVoiceTaskId&&!item.done);if(!selected){setVoiceError('Choose the open task you meant to complete.');return}const completedAt=new Date().toISOString();update('tasks',data.tasks.map(item=>item.id===selected.id?{...item,done:true,completedAt}:item));update('completionEvents',[{id:makeId(),kind:'task',itemId:selected.id,title:selected.title,completedAt},...data.completionEvents]);clearVoice();return}if(voiceCommand.action==='income'||voiceCommand.action==='expense'){if(!voiceCommand.amount){setVoiceError('The amount is missing, so nothing was saved.');return}const currency=voiceCommand.currency??data.settings.baseCurrency;const baseAmount=await convert(voiceCommand.amount,currency,data.settings.baseCurrency);const category=normalizeMoneyCategory(voiceCommand.action,voiceCommand.category,voiceCommand.title);update('money',[{id:makeId(),kind:voiceCommand.action,title:voiceCommand.title||'Voice entry',category,amount:voiceCommand.amount,currency,baseAmount,date:dateKey()},...data.money]);clearVoice();return}setVoiceError('This voice note needs a food lookup before it can be saved.')}catch(error){setVoiceError(error instanceof Error?error.message:'Nothing was saved. Please try again.')}}
   const lookupVoiceMeal=async()=>{if(!voiceCommand?.foodName)return;setVoiceFoodLoading(true);setVoiceError('');try{let foods:NutritionFood[]=[];try{foods=await searchLifeNutrition({query:voiceCommand.foodName})}catch(error){if(authErrorStatus(error)===401)throw error}if(!foods.length){foods=[await voiceNutrition.mutateAsync({data:{food:voiceCommand.foodName}})]}setVoiceFoods(foods);setVoiceFoodId(foods[0]?.id??'')}catch(error){setVoiceError(error instanceof Error?error.message:'Food details could not be found. Nothing was saved.')}finally{setVoiceFoodLoading(false)}};
   const saveVoiceMeal=()=>{if(!voiceCommand?.grams)return;const food=voiceFoods.find(item=>item.id===voiceFoodId);if(!food){setVoiceError('Review and select nutrition details before saving.');return}const amount=voiceCommand.grams;update('meals',[{id:makeId(),name:food.name,grams:amount,calories:Math.round(food.calories*amount/100),protein:Math.round(food.protein*amount/10)/10,carbs:Math.round(food.carbs*amount/10)/10,fat:Math.round(food.fat*amount/10)/10,time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false}),date:dateKey(),source:food.source},...data.meals]);clearVoice()};
   const createReview=async()=>{if(!isReviewSunday){setReviewError('Weekly reviews can only be created on Sundays.');return}setReviewError('');const snapshot=[`Weekly review period: ${weekStart} to ${weekEnd} (${weekRangeLabel}).`,`Daily tasks: ${reviewTasks.filter(item=>item.done).length} of ${reviewTasks.length} completed.`,`Money this week: ${money(reviewIncome,data.settings.baseCurrency)} income and ${money(reviewSpending,data.settings.baseCurrency)} spending. Monthly recurring bills currently total ${money(billTotal,data.settings.baseCurrency)}. Monthly income target: ${money(data.settings.monthlyIncomeTarget,data.settings.baseCurrency)}.`,`Meals: ${reviewMeals.length} logged across the week, ${Math.round(reviewCalories/7)} average kcal per day against a ${data.settings.calorieTarget} kcal daily target; totals: ${Math.round(reviewMeals.reduce((sum,item)=>sum+item.protein,0))} g protein, ${Math.round(reviewMeals.reduce((sum,item)=>sum+item.carbs,0))} g carbs, ${Math.round(reviewMeals.reduce((sum,item)=>sum+item.fat,0))} g fat. Daily carb target: ${data.settings.carbsTarget || 'not set'} g; daily fat target: ${data.settings.fatTarget || 'not set'} g. These figures include logged meals only.`,`Gym and diet check-ins: ${reviewChecks.filter(item=>item.gym==='went').length} gym days attended, ${reviewChecks.filter(item=>item.gym==='missed').length} missed, ${reviewChecks.filter(item=>item.diet==='good').length} good diet days, ${reviewChecks.filter(item=>item.diet==='off').length} off-track days.`,`Training: ${reviewWorkouts.length} workout logs${reviewWorkouts.length?` (${reviewWorkouts.slice(0,8).map(item=>`${item.exercise} ${item.weight} kg, ${item.sets} sets × ${item.reps} reps`).join('; ')})`:''}.`,`Learning: ${modulesAddedThisWeek} modules added this week; ${data.modules.filter(item=>item.done).length} of ${data.modules.length} modules currently marked complete.`,`Voice notes: ${reviewNotes.length} recorded this week.`,`Give a concise, supportive weekly reflection based only on these records. Point out one or two observed patterns and suggest one practical focus for next week. Do not invent missing information or make medical or financial guarantees.`].join('\n');try{const result=await insight.mutateAsync({data:{snapshot}});const savedReview:WeeklyReview={id:currentWeekReview?.id??makeId(),weekStart,weekEnd,createdAt:new Date().toISOString(),summary:result.summary,snapshot};update('weeklyReviews',[savedReview,...data.weeklyReviews.filter(item=>item.weekEnd!==weekEnd)])}catch{setReviewError(currentWeekReview?'Could not refresh this review. Your saved copy in history was not changed. Please try again.':'Could not create your review just now. Nothing was added to history. Please try again.')}}
@@ -117,14 +118,136 @@ function HomePage({data,update}:{data:LifeData;update:<K extends keyof LifeData>
 }
 const currencies:Currency[]=['GBP','USD','AED','EUR'];
 function MoneyPage({data,update}:{data:LifeData;update:<K extends keyof LifeData>(key:K,value:LifeData[K])=>void}){
- const [kind,setKind]=useState<'expense'|'income'>('expense');const [title,setTitle]=useState('');const [category,setCategory]=useState('');const [amount,setAmount]=useState('');const [currency,setCurrency]=useState<Currency>(data.settings.baseCurrency);const [billTitle,setBillTitle]=useState('');const [billAmount,setBillAmount]=useState('');const [billCurrency,setBillCurrency]=useState<Currency>(data.settings.baseCurrency);const [dueDay,setDueDay]=useState('1');const [error,setError]=useState('');const [saving,setSaving]=useState(false);
- const entries=data.money.filter(e=>e.date.startsWith(monthKey()));const income=entries.filter(e=>e.kind==='income').reduce((s,e)=>s+e.baseAmount,0);const spent=entries.filter(e=>e.kind==='expense').reduce((s,e)=>s+e.baseAmount,0);const bills=data.bills.reduce((s,b)=>s+b.baseAmount,0);const commitment=spent+bills;const remaining=data.settings.monthlyIncomeTarget-commitment;const budgetLeft=data.settings.monthlySpendingBudget-commitment;const categories=Object.entries(entries.filter(e=>e.kind==='expense').reduce<Record<string,number>>((acc,e)=>{acc[e.category||'Other']=(acc[e.category||'Other']||0)+e.baseAmount;return acc},{})).sort((a,b)=>b[1]-a[1]);
- const addEntry=async()=>{const value=Number(amount);if(!title.trim()||!Number.isFinite(value)||value<=0){setError('Add a description and a valid amount.');return}setSaving(true);setError('');try{const baseAmount=await convert(value,currency,data.settings.baseCurrency);update('money',[{id:makeId(),kind,title:title.trim(),category:category.trim()||(kind==='income'?'Income':'Other'),amount:value,currency,baseAmount,date:dateKey()},...data.money]);setTitle('');setCategory('');setAmount('')}catch(e){setError(e instanceof Error?e.message:'Conversion failed. Nothing was saved.')}finally{setSaving(false)}};
- const addBill=async()=>{const v=Number(billAmount),d=Number(dueDay);if(!billTitle.trim()||!Number.isFinite(v)||v<=0||!Number.isInteger(d)||d<1||d>31){setError('Add a name, valid amount and due day from 1 to 31.');return}setSaving(true);setError('');try{const baseAmount=await convert(v,billCurrency,data.settings.baseCurrency);update('bills',[{id:makeId(),title:billTitle.trim(),amount:v,currency:billCurrency,baseAmount,dueDay:d},...data.bills]);setBillTitle('');setBillAmount('')}catch(e){setError(e instanceof Error?e.message:'Conversion failed. Nothing was saved.')}finally{setSaving(false)}};
- return <><TopHeading eyebrow="Your money" title="A plan you can trust." subtitle="See what comes in, what goes out, and what your life costs each month."/><div className="money-overview"><Panel className="money-total"><span className="eyebrow light">MONTHLY COMMITMENT</span><strong className="serif" data-testid="money-commitment">{money(commitment,data.settings.baseCurrency)}</strong><p>Expenses logged plus recurring bills.</p><div className="money-total-foot"><span>Income logged <b>{money(income,data.settings.baseCurrency)}</b></span><span>Expenses <b>{money(spent,data.settings.baseCurrency)}</b></span></div></Panel><Panel className="afford-panel"><PanelTitle detail="YOUR BASE CURRENCY">Affordability</PanelTitle><div className="afford-line"><span>Monthly income target</span><b>{data.settings.monthlyIncomeTarget?money(data.settings.monthlyIncomeTarget,data.settings.baseCurrency):'Not set'}</b></div><div className="afford-line"><span>After commitments</span><b className={remaining<0?'negative':''}>{data.settings.monthlyIncomeTarget?money(remaining,data.settings.baseCurrency):'Set a target in Settings'}</b></div>{data.settings.monthlySpendingBudget>0?<><div className="afford-line"><span>Budget remaining</span><b className={budgetLeft<0?'negative':''}>{money(budgetLeft,data.settings.baseCurrency)}</b></div><div className="thin-track"><i style={{width:`${Math.min(100,commitment/data.settings.monthlySpendingBudget*100)}%`}}/></div></>:<p className="quiet-note">Add a spending budget in Settings to track your monthly pace.</p>}</Panel></div>
- <div className="two-column"><Panel><PanelTitle>Add a transaction</PanelTitle><div className="segmented"><button data-testid="kind-expense" className={kind==='expense'?'selected':''} onClick={()=>setKind('expense')}>Expense</button><button data-testid="kind-income" className={kind==='income'?'selected':''} onClick={()=>setKind('income')}>Income</button></div><Field label="Description" value={title} onChange={setTitle} placeholder="Groceries, salary, travel…" testId="money-title"/><Field label="Category" value={category} onChange={setCategory} placeholder={kind==='income'?'Salary, freelance':'Food, home, transport'} testId="money-category"/><div className="form-split"><Field label="Amount" value={amount} onChange={setAmount} placeholder="0.00" type="number" step="0.01" testId="money-amount"/><label className="field"><span>Currency · converted on save</span><select data-testid="money-currency" value={currency} onChange={e=>setCurrency(e.target.value as Currency)}>{currencies.map(c=><option key={c}>{c}</option>)}</select></label></div><Button testId="save-transaction" onClick={()=>void addEntry()} disabled={saving||!title.trim()||!amount}>{saving?<LoaderCircle className="spin" size={16}/>:<Check size={16}/>}Save transaction</Button>{error&&<p className="form-error" data-testid="money-error">{error}</p>}</Panel>
- <Panel><PanelTitle detail="REPEATS MONTHLY">Add a recurring bill</PanelTitle>{data.bills.length?data.bills.map(b=><div className="bill-line bill-edit" key={b.id}><span className="due-pill">Day {b.dueDay}</span><span>{b.title}</span><b>{money(b.baseAmount,data.settings.baseCurrency)}</b><IconButton label={`Remove ${b.title}`} testId={`remove-bill-${b.id}`} onClick={()=>update('bills',data.bills.filter(x=>x.id!==b.id))}><X size={16}/></IconButton></div>):<Empty title="No bills in the plan" detail="Add recurring payments to understand your monthly baseline." icon={Clock3}/>}<div className="divider"/><Field label="Bill name" value={billTitle} onChange={setBillTitle} placeholder="Rent, phone, internet…" testId="bill-title"/><div className="form-split"><Field label="Amount" value={billAmount} onChange={setBillAmount} type="number" step="0.01" placeholder="0.00" testId="bill-amount"/><Field label="Due day" value={dueDay} onChange={setDueDay} type="number" placeholder="1–31" testId="bill-due-day"/></div><label className="field"><span>Currency · converted on save</span><select data-testid="bill-currency" value={billCurrency} onChange={e=>setBillCurrency(e.target.value as Currency)}>{currencies.map(c=><option key={c}>{c}</option>)}</select></label><Button testId="add-bill" onClick={()=>void addBill()} disabled={saving||!billTitle.trim()||!billAmount}><Plus size={16}/>Add recurring bill</Button></Panel></div>
- <div className="two-column money-bottom"><Panel><PanelTitle detail={new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(new Date())}>Spending by category</PanelTitle>{categories.length?categories.map(([name,total])=><div className="category-row" key={name}><div><span>{name}</span><b>{money(total,data.settings.baseCurrency)}</b></div><div className="category-track"><i style={{width:`${Math.max(4,total/categories[0][1]*100)}%`}}/></div></div>):<Empty title="Your review starts here" detail="Log an expense to see where this month is going." icon={TrendingUp}/>}</Panel><Panel><PanelTitle detail={`${entries.length} THIS MONTH`}>Recent activity</PanelTitle>{entries.length?entries.slice(0,8).map(e=><div className="activity-row" key={e.id}><div className={cls('activity-mark',e.kind)}>{e.kind==='income'?<ArrowDownLeft size={15}/>:<ArrowUpRight size={15}/>}</div><div className="activity-copy"><b>{e.title}</b><small>{e.category} · {e.date}</small></div><strong className={e.kind==='income'?'income-value':''}>{e.kind==='expense'?'−':'+'}{money(e.baseAmount,data.settings.baseCurrency)}</strong><IconButton label={`Delete ${e.title}`} testId={`remove-entry-${e.id}`} onClick={()=>update('money',data.money.filter(x=>x.id!==e.id))}><Trash2 size={15}/></IconButton></div>):<Empty title="No activity this month" detail="Transactions you add will appear here." icon={Wallet}/>}</Panel></div></>
+ const [kind,setKind]=useState<'expense'|'income'>('expense');
+ const [title,setTitle]=useState('');
+ const [category,setCategory]=useState('Food');
+ const [amount,setAmount]=useState('');
+ const [currency,setCurrency]=useState<Currency>(data.settings.baseCurrency);
+ const [selectedMonth,setSelectedMonth]=useState(monthKey());
+ const [transactionDate,setTransactionDate]=useState(dateKey());
+ const [billTitle,setBillTitle]=useState('');
+ const [billAmount,setBillAmount]=useState('');
+ const [billCurrency,setBillCurrency]=useState<Currency>(data.settings.baseCurrency);
+ const [dueDay,setDueDay]=useState('1');
+ const [error,setError]=useState('');
+ const [saving,setSaving]=useState(false);
+
+ const monthDate=(()=>{const [year,month]=selectedMonth.split('-').map(Number);return new Date(year,month-1,1)})();
+ const monthLabel=new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric'}).format(monthDate);
+ const entries=data.money.filter(entry=>entry.date.startsWith(selectedMonth)).sort((left,right)=>right.date.localeCompare(left.date)||right.id.localeCompare(left.id));
+ const income=entries.filter(entry=>entry.kind==='income').reduce((sum,entry)=>sum+entry.baseAmount,0);
+ const spent=entries.filter(entry=>entry.kind==='expense').reduce((sum,entry)=>sum+entry.baseAmount,0);
+ const bills=data.bills.reduce((sum,bill)=>sum+bill.baseAmount,0);
+ const commitment=spent+bills;
+ const remaining=data.settings.monthlyIncomeTarget-commitment;
+ const budgetLeft=data.settings.monthlySpendingBudget-commitment;
+ const categories=Object.entries(entries.filter(entry=>entry.kind==='expense').reduce<Record<string,number>>((acc,entry)=>{
+  const name=normalizeMoneyCategory(entry.kind,entry.category,entry.title);
+  acc[name]=(acc[name]||0)+entry.baseAmount;
+  return acc;
+ },{})).sort((a,b)=>b[1]-a[1]);
+ const largestCategory=categories[0]?.[1]||1;
+
+ const setMonth=(nextMonth:string)=>{
+  if(!/^\d{4}-\d{2}$/.test(nextMonth))return;
+  setSelectedMonth(nextMonth);
+  setTransactionDate(nextMonth===monthKey()?dateKey():`${nextMonth}-01`);
+ };
+ const shiftMonth=(offset:number)=>{
+  const [year,month]=selectedMonth.split('-').map(Number);
+  setMonth(dateKey(new Date(year,month-1+offset,1)).slice(0,7));
+ };
+ const addEntry=async()=>{
+  const value=Number(amount);
+  if(!title.trim()||!Number.isFinite(value)||value<=0){setError('Add a description and a valid amount.');return}
+  if(!transactionDate.startsWith(selectedMonth)){setError('Choose a transaction date in the month you are viewing.');return}
+  setSaving(true);setError('');
+  try{
+   const baseAmount=await convert(value,currency,data.settings.baseCurrency);
+   update('money',[{id:makeId(),kind,title:title.trim(),category:normalizeMoneyCategory(kind,category,title),amount:value,currency,baseAmount,date:transactionDate},...data.money]);
+   setTitle('');setCategory(kind==='income'?'Salary':'Food');setAmount('');
+  }catch(e){setError(e instanceof Error?e.message:'Conversion failed. Nothing was saved.')}
+  finally{setSaving(false)}
+ };
+ const deleteEntry=(entry:MoneyEntry)=>{
+  if(!window.confirm(`Delete “${entry.title}” from ${monthLabel}? This cannot be undone.`))return;
+  update('money',data.money.filter(item=>item.id!==entry.id));
+ };
+ const addBill=async()=>{
+  const value=Number(billAmount),day=Number(dueDay);
+  if(!billTitle.trim()||!Number.isFinite(value)||value<=0||!Number.isInteger(day)||day<1||day>31){setError('Add a name, valid amount and due day from 1 to 31.');return}
+  setSaving(true);setError('');
+  try{
+   const baseAmount=await convert(value,billCurrency,data.settings.baseCurrency);
+   update('bills',[{id:makeId(),title:billTitle.trim(),amount:value,currency:billCurrency,baseAmount,dueDay:day},...data.bills]);
+   setBillTitle('');setBillAmount('');
+  }catch(e){setError(e instanceof Error?e.message:'Conversion failed. Nothing was saved.')}
+  finally{setSaving(false)}
+ };
+
+ return <>
+  <TopHeading eyebrow="Your money" title="A plan you can trust." subtitle="See what comes in, what goes out, and what your life costs each month."/>
+  <div className="money-month-toolbar" data-testid="money-month-navigation">
+   <div className="money-month-copy"><span className="eyebrow">MONTHLY VIEW</span><h2>{monthLabel}</h2><p>Review this month’s income, spending and transactions.</p></div>
+   <div className="money-month-controls">
+    <button type="button" className="month-nav-button" aria-label="Previous month" data-testid="previous-money-month" onClick={()=>shiftMonth(-1)}><ChevronLeft size={17}/></button>
+    <label className="field"><span>Choose month</span><input type="month" value={selectedMonth} data-testid="money-month-select" onChange={event=>setMonth(event.target.value)}/></label>
+    <button type="button" className="month-nav-button" aria-label="Next month" data-testid="next-money-month" onClick={()=>shiftMonth(1)}><ChevronRight size={17}/></button>
+   </div>
+   <span className="money-month-count" data-testid="month-transaction-count">{entries.length} {entries.length===1?'transaction':'transactions'}</span>
+  </div>
+  <div className="money-overview">
+   <Panel className="money-total">
+    <span className="eyebrow light">{monthLabel.toLocaleUpperCase()} · MONTHLY COMMITMENT</span>
+    <strong className="serif" data-testid="money-commitment">{money(commitment,data.settings.baseCurrency)}</strong>
+    <p>Selected-month expenses plus the current recurring bill plan.</p>
+    <div className="money-total-foot"><span>Income logged<b>{money(income,data.settings.baseCurrency)}</b></span><span>Expenses<b>{money(spent,data.settings.baseCurrency)}</b></span></div>
+   </Panel>
+   <Panel className="afford-panel">
+    <PanelTitle detail="YOUR BASE CURRENCY">Affordability</PanelTitle>
+    <div className="afford-line"><span>Monthly income target</span><b>{data.settings.monthlyIncomeTarget?money(data.settings.monthlyIncomeTarget,data.settings.baseCurrency):'Not set'}</b></div>
+    <div className="afford-line"><span>After commitments</span><b className={remaining<0?'negative':''}>{data.settings.monthlyIncomeTarget?money(remaining,data.settings.baseCurrency):'Set a target in Settings'}</b></div>
+    {data.settings.monthlySpendingBudget>0?<><div className="afford-line"><span>Budget remaining</span><b className={budgetLeft<0?'negative':''}>{money(budgetLeft,data.settings.baseCurrency)}</b></div><div className="thin-track"><i style={{width:`${Math.min(100,commitment/data.settings.monthlySpendingBudget*100)}%`}}/></div></>:<p className="quiet-note">Add a spending budget in Settings to track your monthly pace.</p>}
+   </Panel>
+  </div>
+  <div className="two-column">
+   <Panel>
+    <PanelTitle>Add a transaction</PanelTitle>
+    <div className="segmented">
+     <button data-testid="kind-expense" className={kind==='expense'?'selected':''} onClick={()=>{setKind('expense');setCategory('Food')}}>Expense</button>
+     <button data-testid="kind-income" className={kind==='income'?'selected':''} onClick={()=>{setKind('income');setCategory('Salary')}}>Income</button>
+    </div>
+    <Field label="Description" value={title} onChange={setTitle} placeholder="Groceries, salary, travel…" testId="money-title"/>
+    <label className="field"><span>Category</span><select data-testid="money-category" value={category} onChange={event=>setCategory(event.target.value)}>{(kind==='expense'?EXPENSE_CATEGORIES:INCOME_CATEGORIES).map(item=><option key={item} value={item}>{item}</option>)}</select></label>
+    <div className="form-split">
+     <Field label="Amount" value={amount} onChange={setAmount} placeholder="0.00" type="number" step="0.01" testId="money-amount"/>
+     <label className="field"><span>Currency · converted on save</span><select data-testid="money-currency" value={currency} onChange={event=>setCurrency(event.target.value as Currency)}>{currencies.map(item=><option key={item}>{item}</option>)}</select></label>
+    </div>
+    <Field label="Transaction date" value={transactionDate} onChange={setTransactionDate} type="date" testId="money-date"/>
+    <Button testId="save-transaction" onClick={()=>void addEntry()} disabled={saving||!title.trim()||!amount}>{saving?<LoaderCircle className="spin" size={16}/>:<Check size={16}/>}Save transaction</Button>
+    {error&&<p className="form-error" data-testid="money-error">{error}</p>}
+   </Panel>
+   <Panel>
+    <PanelTitle detail="REPEATS MONTHLY">Add a recurring bill</PanelTitle>
+    {data.bills.length?data.bills.map(bill=><div className="bill-line bill-edit" key={bill.id}><span className="due-pill">Day {bill.dueDay}</span><span>{bill.title}</span><b>{money(bill.baseAmount,data.settings.baseCurrency)}</b><IconButton label={`Remove ${bill.title}`} testId={`remove-bill-${bill.id}`} onClick={()=>update('bills',data.bills.filter(item=>item.id!==bill.id))}><X size={16}/></IconButton></div>):<Empty title="No bills in the plan" detail="Add recurring payments to understand your monthly baseline." icon={Clock3}/>}
+    <div className="divider"/>
+    <Field label="Bill name" value={billTitle} onChange={setBillTitle} placeholder="Rent, phone, internet…" testId="bill-title"/>
+    <div className="form-split"><Field label="Amount" value={billAmount} onChange={setBillAmount} type="number" step="0.01" placeholder="0.00" testId="bill-amount"/><Field label="Due day" value={dueDay} onChange={setDueDay} type="number" placeholder="1–31" testId="bill-due-day"/></div>
+    <label className="field"><span>Currency · converted on save</span><select data-testid="bill-currency" value={billCurrency} onChange={event=>setBillCurrency(event.target.value as Currency)}>{currencies.map(item=><option key={item}>{item}</option>)}</select></label>
+    <Button testId="add-bill" onClick={()=>void addBill()} disabled={saving||!billTitle.trim()||!billAmount}><Plus size={16}/>Add recurring bill</Button>
+   </Panel>
+  </div>
+  <div className="two-column money-bottom">
+   <Panel>
+    <PanelTitle detail={monthLabel}>Spending by category</PanelTitle>
+    {categories.length?categories.map(([name,total])=><div className="category-row" key={name}><div><span>{name}</span><b>{money(total,data.settings.baseCurrency)}</b></div><div className="category-track"><i style={{width:`${Math.max(4,total/largestCategory*100)}%`}}/></div></div>):<Empty title="No spending in this month" detail={`There are no expense transactions recorded for ${monthLabel}.`} icon={TrendingUp}/>}
+   </Panel>
+   <Panel>
+    <PanelTitle detail={`${entries.length} ${entries.length===1?'TRANSACTION':'TRANSACTIONS'}`}>Transactions · {monthLabel}</PanelTitle>
+    {entries.length?entries.map(entry=><div className="activity-row" key={entry.id}><div className={cls('activity-mark',entry.kind)}>{entry.kind==='income'?<ArrowDownLeft size={15}/>:<ArrowUpRight size={15}/>}</div><div className="activity-copy"><b>{entry.title}</b><small>{normalizeMoneyCategory(entry.kind,entry.category,entry.title)} · {entry.date}</small></div><strong className={entry.kind==='income'?'income-value':''}>{entry.kind==='expense'?'−':'+'}{money(entry.baseAmount,data.settings.baseCurrency)}</strong><button type="button" className="activity-delete" aria-label={`Delete ${entry.title}`} title={`Delete ${entry.title}`} data-testid={`remove-entry-${entry.id}`} onClick={()=>deleteEntry(entry)}><Trash2 size={14}/><span>Delete</span></button></div>):<Empty title="No transactions this month" detail="Entries you add for this month will appear here." icon={Wallet}/>}
+   </Panel>
+  </div>
+ </>
 }
 function StudyPage({data,update}:{data:LifeData;update:<K extends keyof LifeData>(key:K,value:LifeData[K])=>void}){
  const [category,setCategory]=useState('');const [title,setTitle]=useState('');const [notes,setNotes]=useState('');

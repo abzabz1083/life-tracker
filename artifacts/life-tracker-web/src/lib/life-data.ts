@@ -3,6 +3,7 @@ import {
   STUDY_CURRICULUM_VERSION,
   type StudyWeekday,
 } from "./study-curriculum";
+import { normalizeMoneyCategory } from "./money-category";
 
 export type Currency = "GBP" | "USD" | "AED" | "EUR";
 
@@ -291,7 +292,12 @@ export function normalizeLifeData(value: unknown): LifeData {
     ...defaults,
     ...stored,
     tasks: Array.isArray(stored.tasks) ? stored.tasks : [],
-    money: Array.isArray(stored.money) ? stored.money : [],
+    money: Array.isArray(stored.money)
+      ? stored.money.map((entry) => ({
+          ...entry,
+          category: normalizeMoneyCategory(entry.kind, entry.category, entry.title),
+        }))
+      : [],
     bills: Array.isArray(stored.bills) ? stored.bills : [],
     modules,
     meals: Array.isArray(stored.meals) ? stored.meals : [],
