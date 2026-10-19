@@ -59,17 +59,25 @@
 .settings-ai-toggle:focus-visible { outline:3px solid hsl(var(--primary) / 25%); outline-offset:2px; }
 @media(max-width:460px) { .settings-ai-choice { align-items:flex-start; flex-direction:column; } }
 .settings-words-card { grid-column:1/-1; }
-.settings-weekly-word { display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,320px); gap:20px; align-items:center; padding:16px; margin:0 0 18px; border:1px solid hsl(var(--border)); border-radius:14px; background:hsl(var(--background)); }
+.settings-weekly-word { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; align-items:start; padding:16px; margin:0 0 18px; border:1px solid hsl(var(--border)); border-radius:14px; background:hsl(var(--background)); }
 .settings-weekly-word-copy { min-width:0; }
 .settings-week-label { color:hsl(var(--muted-foreground)); font-size:9px; font-weight:700; letter-spacing:.1em; }
 .settings-weekly-word-copy h3 { margin:5px 0 4px; font-family:var(--app-font-serif); font-size:22px; }
 .settings-weekly-word-copy h3 small { color:hsl(var(--muted-foreground)); font:600 10px var(--app-font-sans); text-transform:capitalize; }
 .settings-weekly-word-copy p { margin:0 0 7px; color:hsl(var(--muted-foreground)); font-size:11px; line-height:1.5; }
 .settings-weekly-word-note { color:hsl(var(--muted-foreground)); font-size:10px; line-height:1.4; }
-.settings-weekly-word-actions { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:9px; }
+.settings-weekly-word-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:end; gap:12px; }
 .settings-weekly-word-actions .settings-field { margin:0; }
+.settings-weekly-field-wide { grid-column:1/-1; }
+.settings-weekly-word-actions textarea { width:100%; min-height:62px; resize:vertical; box-sizing:border-box; border:1px solid hsl(var(--border)); border-radius:10px; background:hsl(var(--background)); padding:10px 12px; color:hsl(var(--foreground)); font:inherit; font-weight:400; line-height:1.45; outline:none; }
+.settings-weekly-word-actions textarea:focus { border-color:hsl(var(--primary)); box-shadow:0 0 0 3px hsl(var(--primary) / 12%); }
+.settings-weekly-word-actions textarea::placeholder { color:hsl(var(--muted-foreground)); opacity:1; }
+.settings-weekly-word-buttons { grid-column:1/-1; display:flex; justify-content:flex-end; gap:8px; }
 .settings-word-random { display:flex; align-items:center; justify-content:center; gap:7px; min-height:39px; padding:0 11px; border:1px solid hsl(var(--border)); border-radius:9px; background:hsl(var(--card)); color:hsl(var(--foreground)); font:600 11px var(--app-font-sans); cursor:pointer; white-space:nowrap; }
 .settings-word-random:hover { background:hsl(var(--muted)); }
+.settings-word-save { display:flex; align-items:center; justify-content:center; gap:7px; min-height:39px; padding:0 13px; border:1px solid hsl(var(--primary)); border-radius:9px; background:hsl(var(--primary)); color:hsl(var(--primary-foreground)); font:600 11px var(--app-font-sans); cursor:pointer; white-space:nowrap; }
+.settings-word-save:hover { opacity:.9; }
+.settings-weekly-word-error { grid-column:1/-1; margin:0; }
 .settings-word-list { display:grid; }
 .settings-word-entry { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:14px 0; border-top:1px solid hsl(var(--border)); }
 .settings-word-entry:first-child { border-top:0; padding-top:0; }
@@ -86,4 +94,4 @@
 .settings-words-empty strong { font-size:11px; }
 .settings-words-empty p { margin:5px 0 0; color:hsl(var(--muted-foreground)); font-size:10px; line-height:1.5; }
 @media(max-width:640px) { .settings-weekly-word { grid-template-columns:1fr; gap:12px; } }
-@media(max-width:460px) { .settings-words-card { grid-column:auto; } .settings-word-entry { gap:8px; } .settings-weekly-word-actions { grid-template-columns:1fr; } }
+@media(max-width:460px) { .settings-words-card { grid-column:auto; } .settings-word-entry { gap:8px; } .settings-weekly-word-actions { grid-template-columns:1fr; } .settings-weekly-field-wide,.settings-weekly-word-buttons,.settings-weekly-word-error { grid-column:auto; } .settings-weekly-word-buttons { justify-content:stretch; } .settings-weekly-word-buttons button { flex:1; } }

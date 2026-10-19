@@ -20,7 +20,7 @@ import {
   useUpdateLifeReminderSettings,
 } from "@workspace/api-client-react";
 import { dateKey, type Currency, type LifeData, type Settings } from "@/lib/life-data";
-import { getRandomWord, getWordByName, getWordOfWeek, WEEKLY_WORDS } from "@/lib/word-of-week";
+import { getRandomWord, getSelectedWeeklyWord, getWordOfWeek, type WeeklyWord } from "@/lib/word-of-week";
 import HistoryTab from "@/components/HistoryTab";
 import "./settings-dashboard.css";
 
@@ -61,6 +61,15 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
   const [reminderMessage, setReminderMessage] = useState("");
   const [reminderError, setReminderError] = useState("");
   const [accessError, setAccessError] = useState("");
+  const [weeklyWordDraft, setWeeklyWordDraft] = useState<WeeklyWord>(() => {
+    const today = new Date();
+    const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
+    const week = dateKey(monday);
+    return data.weeklyWordSelection?.week === week
+      ? getSelectedWeeklyWord(data.weeklyWordSelection, today)
+      : getWordOfWeek(today);
+  });
+  const [weeklyWordError, setWeeklyWordError] = useState("");
 
   useEffect(() => {
     if (reminderQuery.data) {
@@ -198,14 +207,62 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
   const today = new Date();
   const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
   const weeklyWordWeek = dateKey(monday);
-  const weeklyWord =
+  const selectedWeeklyWord =
     data.weeklyWordSelection?.week === weeklyWordWeek
-      ? getWordByName(data.weeklyWordSelection.word) ?? getWordOfWeek(today)
+      ? getSelectedWeeklyWord(data.weeklyWordSelection, today)
       : getWordOfWeek(today);
-  const selectWeeklyWord = (word: string) =>
-    update("weeklyWordSelection", { week: weeklyWordWeek, word });
-  const randomizeWeeklyWord = () =>
-    selectWeeklyWord(getRandomWord(weeklyWord.word).word);
+  const weeklyWord = weeklyWordDraft;
+
+  useEffect(() => {
+    setWeeklyWordDraft(selectedWeeklyWord);
+    setWeeklyWordError("");
+  }, [
+    weeklyWordWeek,
+    data.weeklyWordSelection?.week,
+    data.weeklyWordSelection?.word,
+    data.weeklyWordSelection?.partOfSpeech,
+    data.weeklyWordSelection?.definition,
+    data.weeklyWordSelection?.sentence,
+    data.weeklyWordSelection?.conversation?.[0],
+    data.weeklyWordSelection?.conversation?.[1],
+  ]);
+
+  const saveWeeklyWord = () => {
+    const word = weeklyWordDraft.word.trim();
+    const definition = weeklyWordDraft.definition.trim();
+    const sentence = weeklyWordDraft.sentence.trim();
+    const firstLine = weeklyWordDraft.conversation[0].trim();
+    const secondLine = weeklyWordDraft.conversation[1].trim();
+    if (!word || !definition || !sentence || !firstLine || !secondLine) {
+      setWeeklyWordError("Add the word, definition, sentence and both conversation lines.");
+      return;
+    }
+    const savedWord: WeeklyWord = {
+      word,
+      partOfSpeech: weeklyWordDraft.partOfSpeech.trim() || "word",
+      definition,
+      sentence,
+      conversation: [firstLine, secondLine],
+    };
+    setWeeklyWordDraft(savedWord);
+    setWeeklyWordError("");
+    update("weeklyWordSelection", {
+      week: weeklyWordWeek,
+      ...savedWord,
+      conversation: [savedWord.conversation[0], savedWord.conversation[1]],
+    });
+  };
+
+  const randomizeWeeklyWord = () => {
+    const nextWord = getRandomWord(weeklyWordDraft.word);
+    setWeeklyWordDraft(nextWord);
+    setWeeklyWordError("");
+    update("weeklyWordSelection", {
+      week: weeklyWordWeek,
+      ...nextWord,
+      conversation: [nextWord.conversation[0], nextWord.conversation[1]],
+    });
+  };
 
   return (
     <div className="settings-dashboard">
@@ -317,19 +374,68 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
               <span className="settings-week-label">WEEK OF {weeklyWordWeek}</span>
               <h3>{weeklyWord.word} <small>{weeklyWord.partOfSpeech}</small></h3>
               <p>{weeklyWord.definition}</p>
-              <span className="settings-weekly-word-note">This word stays for the week unless you choose or randomize another.</span>
+              <span className="settings-weekly-word-note">Type any word and add its meaning and examples. It stays for the week once saved.</span>
             </div>
             <div className="settings-weekly-word-actions">
-              <label className="settings-field">
-                <span>Choose this week’s word</span>
-                <select
-                  data-testid="weekly-word-select"
-                  value={weeklyWord.word}
-                  onChange={(event) => selectWeeklyWord(event.target.value)}
-                >
-                  {WEEKLY_WORDS.map((item) => <option key={item.word} value={item.word}>{item.word}</option>)}
-                </select>
+              <label className="settings-field settings-weekly-field">
+                <span>Word for this week</span>
+                <input
+                  data-testid="weekly-word-input"
+                  value={weeklyWordDraft.word}
+                  onChange={(event) => setWeeklyWordDraft((current) => ({ ...current, word: event.target.value }))}
+                  placeholder="Type any word"
+                />
               </label>
+              <label className="settings-field settings-weekly-field">
+                <span>Part of speech</span>
+                <input
+                  data-testid="weekly-word-part-of-speech"
+                  value={weeklyWordDraft.partOfSpeech}
+                  onChange={(event) => setWeeklyWordDraft((current) => ({ ...current, partOfSpeech: event.target.value }))}
+                  placeholder="Noun, verb, adjective…"
+                />
+              </label>
+              <label className="settings-field settings-weekly-field settings-weekly-field-wide">
+                <span>Definition</span>
+                <textarea
+                  data-testid="weekly-word-definition"
+                  value={weeklyWordDraft.definition}
+                  onChange={(event) => setWeeklyWordDraft((current) => ({ ...current, definition: event.target.value }))}
+                  placeholder="What does the word mean?"
+                  rows={2}
+                />
+              </label>
+              <label className="settings-field settings-weekly-field settings-weekly-field-wide">
+                <span>Example sentence</span>
+                <textarea
+                  data-testid="weekly-word-sentence"
+                  value={weeklyWordDraft.sentence}
+                  onChange={(event) => setWeeklyWordDraft((current) => ({ ...current, sentence: event.target.value }))}
+                  placeholder="Use the word in a sentence."
+                  rows={2}
+                />
+              </label>
+              <label className="settings-field settings-weekly-field">
+                <span>Conversation · A</span>
+                <textarea
+                  data-testid="weekly-word-conversation-a"
+                  value={weeklyWordDraft.conversation[0]}
+                  onChange={(event) => setWeeklyWordDraft((current) => ({ ...current, conversation: [event.target.value, current.conversation[1]] }))}
+                  placeholder="First line"
+                  rows={2}
+                />
+              </label>
+              <label className="settings-field settings-weekly-field">
+                <span>Conversation · B</span>
+                <textarea
+                  data-testid="weekly-word-conversation-b"
+                  value={weeklyWordDraft.conversation[1]}
+                  onChange={(event) => setWeeklyWordDraft((current) => ({ ...current, conversation: [current.conversation[0], event.target.value] }))}
+                  placeholder="Reply using the word"
+                  rows={2}
+                />
+              </label>
+              <div className="settings-weekly-word-buttons">
               <button
                 className="settings-word-random"
                 type="button"
@@ -338,6 +444,16 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
               >
                 <Shuffle size={15} /> Random word
               </button>
+                <button
+                  className="settings-word-save"
+                  type="button"
+                  data-testid="save-weekly-word"
+                  onClick={saveWeeklyWord}
+                >
+                  <Check size={15} /> Save word
+                </button>
+              </div>
+              {weeklyWordError && <p className="settings-error settings-weekly-word-error" role="alert" data-testid="weekly-word-error">{weeklyWordError}</p>}
             </div>
           </div>
           {data.savedWords.length ? <div className="settings-word-list">{[...data.savedWords].sort((a, b) => b.savedAt.localeCompare(a.savedAt)).map((word) => (

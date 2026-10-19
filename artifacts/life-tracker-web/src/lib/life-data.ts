@@ -159,6 +159,10 @@ export type DailySummary = {
 export type WeeklyWordSelection = {
   week: string;
   word: string;
+  partOfSpeech?: string;
+  definition?: string;
+  sentence?: string;
+  conversation?: [string, string];
 };
 
 export type Settings = {
@@ -281,11 +285,23 @@ export function normalizeLifeData(value: unknown): LifeData {
           typeof item.snapshot === "string"),
       )
     : [];
+  const rawWeeklyWord = stored.weeklyWordSelection;
   const weeklyWordSelection =
-    stored.weeklyWordSelection &&
-    typeof stored.weeklyWordSelection.week === "string" &&
-    typeof stored.weeklyWordSelection.word === "string"
-      ? stored.weeklyWordSelection
+    rawWeeklyWord &&
+    typeof rawWeeklyWord.week === "string" &&
+    typeof rawWeeklyWord.word === "string"
+      ? {
+          week: rawWeeklyWord.week,
+          word: rawWeeklyWord.word,
+          ...(typeof rawWeeklyWord.partOfSpeech === "string" ? { partOfSpeech: rawWeeklyWord.partOfSpeech } : {}),
+          ...(typeof rawWeeklyWord.definition === "string" ? { definition: rawWeeklyWord.definition } : {}),
+          ...(typeof rawWeeklyWord.sentence === "string" ? { sentence: rawWeeklyWord.sentence } : {}),
+          ...(Array.isArray(rawWeeklyWord.conversation) &&
+          typeof rawWeeklyWord.conversation[0] === "string" &&
+          typeof rawWeeklyWord.conversation[1] === "string"
+            ? { conversation: [rawWeeklyWord.conversation[0], rawWeeklyWord.conversation[1]] as [string, string] }
+            : {}),
+        }
       : undefined;
 
   return {

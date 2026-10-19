@@ -283,6 +283,29 @@ export function getWordByName(name: string): WeeklyWord | undefined {
   return WEEKLY_WORDS.find((item) => item.word.toLocaleLowerCase() === name.trim().toLocaleLowerCase());
 }
 
+export function getSelectedWeeklyWord(
+  selection?: {
+    word: string;
+    partOfSpeech?: string;
+    definition?: string;
+    sentence?: string;
+    conversation?: readonly [string, string];
+  },
+  date = new Date(),
+): WeeklyWord {
+  if (!selection?.word.trim()) return getWordOfWeek(date);
+  const preset = getWordByName(selection.word);
+  return {
+    word: selection.word.trim(),
+    partOfSpeech: selection.partOfSpeech?.trim() || preset?.partOfSpeech || "word",
+    definition: selection.definition?.trim() || preset?.definition || "Add a definition in Settings.",
+    sentence: selection.sentence?.trim() || preset?.sentence || "Add an example sentence in Settings.",
+    conversation:
+      selection.conversation ??
+      preset?.conversation ?? ["Add conversation example A in Settings.", "Add conversation example B in Settings."],
+  };
+}
+
 export function getRandomWord(excluding?: string): WeeklyWord {
   const candidates = WEEKLY_WORDS.filter(
     (item) => item.word.toLocaleLowerCase() !== excluding?.trim().toLocaleLowerCase(),
