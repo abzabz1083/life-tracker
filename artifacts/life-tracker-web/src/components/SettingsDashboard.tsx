@@ -10,6 +10,7 @@ import {
   LogOut,
   Settings2,
   Sparkles,
+  Shuffle,
   Wallet,
 } from "lucide-react";
 import {
@@ -18,7 +19,8 @@ import {
   useSyncLifeReminderSnapshot,
   useUpdateLifeReminderSettings,
 } from "@workspace/api-client-react";
-import type { Currency, LifeData, Settings } from "@/lib/life-data";
+import { dateKey, type Currency, type LifeData, type Settings } from "@/lib/life-data";
+import { getRandomWord, getWordByName, getWordOfWeek, WEEKLY_WORDS } from "@/lib/word-of-week";
 import HistoryTab from "@/components/HistoryTab";
 import "./settings-dashboard.css";
 
@@ -193,6 +195,17 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
     reminder.chatId.trim().length > 0 &&
     reminder.timezone.trim().length > 0 &&
     (!reminder.enabled || reminder.tokenConfigured || botToken.trim().length >= 10);
+  const today = new Date();
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
+  const weeklyWordWeek = dateKey(monday);
+  const weeklyWord =
+    data.weeklyWordSelection?.week === weeklyWordWeek
+      ? getWordByName(data.weeklyWordSelection.word) ?? getWordOfWeek(today)
+      : getWordOfWeek(today);
+  const selectWeeklyWord = (word: string) =>
+    update("weeklyWordSelection", { week: weeklyWordWeek, word });
+  const randomizeWeeklyWord = () =>
+    selectWeeklyWord(getRandomWord(weeklyWord.word).word);
 
   return (
     <div className="settings-dashboard">
@@ -298,6 +311,34 @@ export function SettingsDashboard({ data, update, onSignOut }: Props) {
           <div className="settings-card-heading">
             <span><BookOpen size={18} /></span>
             <div><h2>Words</h2><p>Keep useful vocabulary and revisit the complete examples.</p></div>
+          </div>
+          <div className="settings-weekly-word" data-testid="settings-weekly-word">
+            <div className="settings-weekly-word-copy">
+              <span className="settings-week-label">WEEK OF {weeklyWordWeek}</span>
+              <h3>{weeklyWord.word} <small>{weeklyWord.partOfSpeech}</small></h3>
+              <p>{weeklyWord.definition}</p>
+              <span className="settings-weekly-word-note">This word stays for the week unless you choose or randomize another.</span>
+            </div>
+            <div className="settings-weekly-word-actions">
+              <label className="settings-field">
+                <span>Choose this week’s word</span>
+                <select
+                  data-testid="weekly-word-select"
+                  value={weeklyWord.word}
+                  onChange={(event) => selectWeeklyWord(event.target.value)}
+                >
+                  {WEEKLY_WORDS.map((item) => <option key={item.word} value={item.word}>{item.word}</option>)}
+                </select>
+              </label>
+              <button
+                className="settings-word-random"
+                type="button"
+                data-testid="random-weekly-word"
+                onClick={randomizeWeeklyWord}
+              >
+                <Shuffle size={15} /> Random word
+              </button>
+            </div>
           </div>
           {data.savedWords.length ? <div className="settings-word-list">{[...data.savedWords].sort((a, b) => b.savedAt.localeCompare(a.savedAt)).map((word) => (
             <article className="settings-word-entry" key={word.id} data-testid={`settings-word-${word.id}`}>

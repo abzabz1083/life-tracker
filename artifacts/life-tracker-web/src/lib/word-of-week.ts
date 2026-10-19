@@ -6,7 +6,7 @@ export type WeeklyWord = {
   conversation: readonly [string, string];
 };
 
-const WORDS: readonly WeeklyWord[] = [
+export const WEEKLY_WORDS: readonly WeeklyWord[] = [
   {
     word: "articulate",
     partOfSpeech: "verb",
@@ -275,6 +275,17 @@ const FIRST_MONDAY_UTC = Date.UTC(1970, 0, 5);
 export function getWordOfWeek(date = new Date()): WeeklyWord {
   const day = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
   const weekIndex = Math.floor((day - FIRST_MONDAY_UTC) / WEEK_MS);
-  const index = ((weekIndex % WORDS.length) + WORDS.length) % WORDS.length;
-  return WORDS[index];
+  const index = ((weekIndex % WEEKLY_WORDS.length) + WEEKLY_WORDS.length) % WEEKLY_WORDS.length;
+  return WEEKLY_WORDS[index];
+}
+
+export function getWordByName(name: string): WeeklyWord | undefined {
+  return WEEKLY_WORDS.find((item) => item.word.toLocaleLowerCase() === name.trim().toLocaleLowerCase());
+}
+
+export function getRandomWord(excluding?: string): WeeklyWord {
+  const candidates = WEEKLY_WORDS.filter(
+    (item) => item.word.toLocaleLowerCase() !== excluding?.trim().toLocaleLowerCase(),
+  );
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? WEEKLY_WORDS[0];
 }

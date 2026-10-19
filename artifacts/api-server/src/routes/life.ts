@@ -424,6 +424,7 @@ router.post("/life/voice-command", aiRateLimit, async (req, res): Promise<void> 
         "Never invent a task name, amount, currency, food, quantity, or category. Include amount/currency only when explicitly spoken. Supported currencies are GBP, USD, AED, EUR; if another currency is spoken, use unknown and explain in clarification.",
         "For completing a task, put the spoken task name in targetTitle. For a new task, put its concise title in title.",
         "For income or expense, amount must be positive and title should describe the source or purchase.",
+        "For expenses, infer a short category from what was bought: biscuits, snacks, groceries, meals and drinks are Food; rides, fuel and transit are Transport; rent, utilities and household purchases are Home. Use Other only when the purchase is unclear.",
         "For a meal, extract foodName and grams. In this voice-capture context, a bare food plus a weight such as 'white rice 100 grams' means a meal entry. Do not infer the weight if absent.",
         "If the action or required details are unclear, use unknown and briefly say what needs clarification. Use an empty title when there is no useful title.",
         "Return JSON only; no markdown or extra text.",

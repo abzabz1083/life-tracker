@@ -155,6 +155,11 @@ export type DailySummary = {
   snapshot: string;
 };
 
+export type WeeklyWordSelection = {
+  week: string;
+  word: string;
+};
+
 export type Settings = {
   baseCurrency: Currency;
   monthlyIncomeTarget: number;
@@ -183,6 +188,7 @@ export type LifeData = {
   weeklyReviews: WeeklyReview[];
   savedWords: SavedWord[];
   dailySummaries: DailySummary[];
+  weeklyWordSelection?: WeeklyWordSelection;
   completionEvents: CompletionEvent[];
   studyCurriculumVersion: number;
   settings: Settings;
@@ -274,6 +280,12 @@ export function normalizeLifeData(value: unknown): LifeData {
           typeof item.snapshot === "string"),
       )
     : [];
+  const weeklyWordSelection =
+    stored.weeklyWordSelection &&
+    typeof stored.weeklyWordSelection.week === "string" &&
+    typeof stored.weeklyWordSelection.word === "string"
+      ? stored.weeklyWordSelection
+      : undefined;
 
   return {
     ...defaults,
@@ -291,6 +303,7 @@ export function normalizeLifeData(value: unknown): LifeData {
     weeklyReviews: Array.isArray(stored.weeklyReviews) ? stored.weeklyReviews : [],
     savedWords,
     dailySummaries,
+    weeklyWordSelection,
     completionEvents: Array.isArray(stored.completionEvents)
       ? stored.completionEvents
       : [],
