@@ -15,6 +15,19 @@ export type Task = {
   completedAt?: string;
 };
 
+export type DailyNonNegotiable = {
+  id: string;
+  title: string;
+  createdAt: string;
+  archivedAt?: string;
+};
+
+export type DailyNonNegotiableCheck = {
+  itemId: string;
+  date: string;
+  completedAt: string;
+};
+
 export type MoneyEntry = {
   id: string;
   kind: "income" | "expense";
@@ -52,7 +65,7 @@ export type StudyModule = {
 
 export type CompletionEvent = {
   id: string;
-  kind: "task" | "module";
+  kind: "task" | "module" | "non_negotiable";
   itemId: string;
   title: string;
   category?: string;
@@ -181,6 +194,8 @@ export type Settings = {
 
 export type LifeData = {
   tasks: Task[];
+  nonNegotiables: DailyNonNegotiable[];
+  nonNegotiableChecks: DailyNonNegotiableCheck[];
   money: MoneyEntry[];
   bills: Bill[];
   modules: StudyModule[];
@@ -201,6 +216,8 @@ export type LifeData = {
 
 export const createDefaultLifeData = (): LifeData => ({
   tasks: [],
+  nonNegotiables: [],
+  nonNegotiableChecks: [],
   money: [],
   bills: [],
   modules: createCurriculumModules(),
@@ -285,6 +302,25 @@ export function normalizeLifeData(value: unknown): LifeData {
           typeof item.snapshot === "string"),
       )
     : [];
+  const nonNegotiables = Array.isArray(stored.nonNegotiables)
+    ? stored.nonNegotiables.filter((item): item is DailyNonNegotiable =>
+        Boolean(item && typeof item === "object" &&
+          typeof item.id === "string" && typeof item.title === "string" &&
+          typeof item.createdAt === "string" &&
+          (item.archivedAt === undefined || typeof item.archivedAt === "string")),
+      )
+    : [];
+  const savedNonNegotiableChecks = Array.isArray(stored.nonNegotiableChecks)
+    ? stored.nonNegotiableChecks.filter((item): item is DailyNonNegotiableCheck =>
+        Boolean(item && typeof item === "object" &&
+          typeof item.itemId === "string" &&
+          typeof item.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.date) &&
+          typeof item.completedAt === "string"),
+      )
+    : [];
+  const nonNegotiableChecks = savedNonNegotiableChecks.filter((item, index, all) =>
+    all.findIndex((other) => other.itemId === item.itemId && other.date === item.date) === index,
+  );
   const rawWeeklyWord = stored.weeklyWordSelection;
   const weeklyWordSelection =
     rawWeeklyWord &&
@@ -308,6 +344,8 @@ export function normalizeLifeData(value: unknown): LifeData {
     ...defaults,
     ...stored,
     tasks: Array.isArray(stored.tasks) ? stored.tasks : [],
+    nonNegotiables,
+    nonNegotiableChecks,
     money: Array.isArray(stored.money)
       ? stored.money.map((entry) => ({
           ...entry,
@@ -339,3 +377,50 @@ export const makeId = () =>
 
 export const dateKey = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+export function toggleDailyNonNegotiableCheck(
+  checks: DailyNonNegotiableCheck[],
+  itemId: string,
+  date: string,
+  completedAt: string,
+): { checks: DailyNonNegotiableCheck[]; completed: boolean } {
+  const alreadyChecked = checks.some((check) => check.itemId === itemId && check.date === date);
+  if (alreadyChecked) {
+    return {
+      checks: checks.filter((check) => check.itemId !== itemId || check.date !== date),
+      completed: false,
+    };
+  }
+  return {
+    checks: [{ itemId, date, completedAt }, ...checks],
+    completed: true,
+  };
+}
+
+export function addDailyNonNegotiable(
+  items: DailyNonNegotiable[],
+  title: string,
+  id: string,
+  createdAt: string,
+): { items: DailyNonNegotiable[]; error?: string } {
+  const normalizedTitle = title.trim();
+  if (!normalizedTitle) return { items, error: "Enter a daily non-negotiable." };
+  if (items.some((item) =>
+    !item.archivedAt && item.title.trim().toLocaleLowerCase() === normalizedTitle.toLocaleLowerCase(),
+  )) {
+    return { items, error: "That daily non-negotiable is already on your list." };
+  }
+  return {
+    items: [{ id, title: normalizedTitle, createdAt }, ...items],
+  };
+}
+
+export function archiveDailyNonNegotiable(
+  items: DailyNonNegotiable[],
+  id: string,
+  archivedAt: string,
+): DailyNonNegotiable[] {
+  return items.map((item) =>
+    item.id === id && !item.archivedAt ? { ...item, archivedAt } : item,
+  );
+}

@@ -1,0 +1,94 @@
+.nonnegotiables-panel {
+  grid-column: 1 / -1;
+}
+
+.nonnegotiables-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.nonnegotiables-heading h2 {
+  margin: 4px 0 3px;
+  color: #2d3941;
+  font: 700 17px var(--app-font-serif);
+}
+
+.nonnegotiables-heading p {
+  margin: 0;
+  color: #7b8581;
+  font-size: 10px;
+}
+
+.nonnegotiables-heading > strong {
+  flex: none;
+  color: #728078;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.nonnegotiables-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  column-gap: 22px;
+}
+
+.nonnegotiable-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 0;
+  border-top: 1px solid #edeee8;
+}
+
+.nonnegotiable-copy {
+  flex: 1;
+  min-width: 0;
+  color: #38454b;
+  font-size: 12px;
+}
+
+.nonnegotiable-copy > span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.nonnegotiable-copy small {
+  display: block;
+  margin-top: 3px;
+  color: #87918b;
+  font-size: 9px;
+}
+
+.nonnegotiable-progress-track {
+  height: 4px;
+  margin-top: 9px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #e7e9e1;
+}
+
+.nonnegotiable-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #6d8a75;
+  transition: width .25s ease;
+}
+
+.nonnegotiables-form {
+  max-width: 520px;
+}
+
+@media (max-width: 767px) {
+  .nonnegotiables-heading {
+    align-items: flex-start;
+  }
+
+  .nonnegotiables-list {
+    grid-template-columns: 1fr;
+  }
+}

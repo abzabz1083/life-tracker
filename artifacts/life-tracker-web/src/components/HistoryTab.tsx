@@ -178,17 +178,21 @@ function getTimelineItems(data: LifeData): TimelineItem[] {
     const currentModuleAlreadyShowsThis = event.kind === "module" &&
       data.modules.some((module) => module.id === event.itemId && module.completedAt === event.completedAt);
     if (currentTaskAlreadyShowsThis || currentModuleAlreadyShowsThis) return;
+    const isModule = event.kind === "module";
+    const isNonNegotiable = event.kind === "non_negotiable";
     items.push({
       id: `completion-${event.id}`,
-      category: event.kind === "task" ? "tasks" : "learning",
+      category: isModule ? "learning" : "tasks",
       title: event.title,
-      detail: event.kind === "task"
-        ? "Task completion"
-        : `${event.category ?? "Study module"} · module completion`,
+      detail: isNonNegotiable
+        ? "Daily non-negotiable completed"
+        : isModule
+          ? `${event.category ?? "Study module"} · module completion`
+          : "Task completion",
       timestamp: event.completedAt,
       dateKey: dateOnly(event.completedAt),
-      icon: event.kind === "task" ? Check : BookOpen,
-      tone: event.kind === "task" ? "task" : "learning",
+      icon: isModule ? BookOpen : Check,
+      tone: isModule ? "learning" : "task",
       status: "Completed",
     });
   });
