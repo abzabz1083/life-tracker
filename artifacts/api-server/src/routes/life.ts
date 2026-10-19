@@ -24,6 +24,12 @@ import {
   decryptTelegramToken,
   encryptTelegramToken,
 } from "../lib/telegramTokenEncryption";
+import {
+  foodNeedsNutritionClarification,
+  isPlausibleNutrition,
+  normalizeOpenFoodFactsNutrition,
+  normalizeUsdaNutrition,
+} from "../lib/nutrition-values";
 import { PASSCODE_OWNER_ID, requirePasscodeSession } from "../lib/passcodeAuth";
 
 const router: IRouter = Router();
@@ -313,31 +319,17 @@ router.get("/life/nutrition-search", async (req, res) => {
           }>;
         }>;
       };
-      const items = (body.foods ?? [])
-        .map((food) => {
-          const nutrients = food.foodNutrients ?? [];
-          const findNutrient = (predicate: (name: string) => boolean) =>
-            nutrients.find((nutrient) =>
-              predicate((nutrient.nutrientName ?? "").toLocaleLowerCase()),
-            )?.value ?? 0;
-          const calories =
-            nutrients.find(
-              (nutrient) =>
-                nutrient.nutrientNumber === "1008" ||
-                (nutrient.nutrientName?.toLocaleLowerCase() === "energy" &&
-                  nutrient.unitName?.toLocaleUpperCase() === "KCAL"),
-            )?.value ?? findNutrient((name) => name.includes("energy"));
-          return {
-            id: `usda-${food.fdcId}`,
-            name: food.description,
-            source: "USDA FoodData Central" as const,
-            calories,
-            protein: findNutrient((name) => name === "protein"),
-            carbs: findNutrient((name) => name.includes("carbohydrate")),
-            fat: findNutrient((name) => name.includes("total lipid") || name === "fat"),
-          };
-        })
-        .filter((food) => food.name && food.calories > 0);
+      const items = (body.foods ?? []).flatMap((food) => {
+        const nutrition = normalizeUsdaNutrition(food.foodNutrients ?? []);
+        return food.description && nutrition
+          ? [{
+              id: `usda-${food.fdcId}`,
+              name: food.description,
+              source: "USDA FoodData Central" as const,
+              ...nutrition,
+            }]
+          : [];
+      });
       if (items.length) {
         nutritionCache.set(cacheKey, { items, expiresAt: Date.now() + 30 * 60_000 });
         res.json(items);
@@ -367,24 +359,17 @@ router.get("/life/nutrition-search", async (req, res) => {
           nutriments?: Record<string, unknown>;
         }>;
       };
-      const items = (body.products ?? [])
-        .map((product) => {
-          const values = product.nutriments ?? {};
-          const value = (key: string) => {
-            const found = values[key];
-            return typeof found === "number" && Number.isFinite(found) ? found : 0;
-          };
-          return {
-            id: `off-${product.code ?? product.product_name ?? query}`,
-            name: product.product_name ?? "",
-            source: "Open Food Facts" as const,
-            calories: value("energy-kcal_100g"),
-            protein: value("proteins_100g"),
-            carbs: value("carbohydrates_100g"),
-            fat: value("fat_100g"),
-          };
-        })
-        .filter((food) => food.name && food.calories > 0);
+      const items = (body.products ?? []).flatMap((product) => {
+        const nutrition = normalizeOpenFoodFactsNutrition(product.nutriments ?? {});
+        return product.product_name && nutrition
+          ? [{
+              id: `off-${product.code ?? product.product_name}`,
+              name: product.product_name,
+              source: "Open Food Facts" as const,
+              ...nutrition,
+            }]
+          : [];
+      });
       if (items.length) {
         nutritionCache.set(cacheKey, { items, expiresAt: Date.now() + 30 * 60_000 });
         res.json(items);
@@ -504,15 +489,20 @@ router.post("/life/nutrition-estimate", aiRateLimit, async (req, res): Promise<v
     res.status(400).json({ error: "Enter a food name to estimate." });
     return;
   }
+  const clarification = foodNeedsNutritionClarification(parsed.data.food);
+  if (clarification) {
+    res.status(400).json({ error: clarification });
+    return;
+  }
 
   try {
     const response = await anthropic.messages.create({
       model: "claude-haiku-5-5",
       max_tokens: 8192,
       system: [
-        "Estimate typical nutrition for a common food using general knowledge only. You do not have live web or database access, so never claim this is exact or verified.",
+        "Estimate typical nutrition for the exact food and preparation the user named using general knowledge only. You do not have live web or database access, so never claim this is exact or verified.",
         "Return only JSON with name, calories, protein, carbs, and fat, all per 100 grams. Use calories in kcal and macros in grams.",
-        "If raw/dry versus cooked state is ambiguous, use the common ready-to-eat cooked form and make that assumption clear in name. Keep values nonnegative and plausible.",
+        "Never invent a cut, raw/cooked state, cooking method, or substitute a different food. Preserve the user's exact food form in the returned name.",
         "Do not estimate a branded packaged food; use conservative typical values and indicate uncertainty in the name.",
       ].join(" "),
       messages: [{ role: "user", content: parsed.data.food }],
@@ -537,6 +527,10 @@ router.post("/life/nutrition-estimate", aiRateLimit, async (req, res): Promise<v
       carbs: raw.carbs,
       fat: raw.fat,
     });
+    if (!isPlausibleNutrition(responseFood)) {
+      res.status(502).json({ error: "Claude returned implausible values. No nutrition was saved; check the packet label instead." });
+      return;
+    }
     res.json(responseFood);
   } catch {
     req.log.error("Unable to estimate nutrition with Claude");

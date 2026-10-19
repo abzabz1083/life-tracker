@@ -105,6 +105,7 @@
 .hd-primary:disabled,.hd-secondary:disabled { cursor:not-allowed; opacity:.48; }
 .hd-small-button { min-height:29px; padding:0 10px; border:1px solid #dfe3dc; background:#f4f4ed; color:#53675a; }
 .hd-small-button:hover { background:#e8ece5; }
+.hd-small-button:disabled { cursor:not-allowed; opacity:.48; }
 .hd-text-button { border:0; background:transparent; padding:8px 0 0; color:#557260; font-size:9px; font-weight:700; text-decoration:underline; text-underline-offset:3px; }
 .hd-result { display:flex; align-items:center; gap:10px; padding:11px 0; border-top:1px solid #eceee8; }
 .hd-result>div { flex:1; min-width:0; }
@@ -112,6 +113,10 @@
 .hd-result b { font-size:10px; line-height:1.4; }
 .hd-result small { color:#89928e; font-size:8px; line-height:1.45; margin-top:3px; }
 .hd-error { margin:9px 0; color:#9b5a51; font-size:10px; line-height:1.5; }
+.hd-estimate-warning { margin:7px 0 4px; color:#8b5c2e; font-size:9px; font-weight:650; line-height:1.45; }
+.hd-estimate-confirm,.hd-label-confirm { display:flex; align-items:flex-start; gap:7px; margin-top:6px; color:#68736c; font-size:9px; line-height:1.45; }
+.hd-estimate-confirm input,.hd-label-confirm input { flex:none; margin:1px 0 0; accent-color:#4b6b58; }
+.hd-label-confirm { padding:9px 10px; border:1px solid #e4e7df; border-radius:8px; background:#f7f8f2; }
 .hd-manual { margin-top:10px; padding-top:12px; border-top:1px solid #e9ebe4; }
 .hd-manual .hd-field-row { grid-template-columns:1fr 1fr; margin-top:8px; }
 .hd-upload { position:relative; display:flex; align-items:center; gap:12px; min-height:64px; padding:11px 13px; border:1px dashed #cbd4ca; border-radius:9px; background:#f8f8f2; color:#6b7d70; cursor:pointer; }

@@ -25,6 +25,26 @@ function parseFoodPhrase(value: string) {
   const food = value.replace(amount?.[0] ?? "", " ").replace(/\s+/g, " ").trim();
   return { food, grams: amount ? Number(amount[1]) : undefined };
 }
+function foodEstimateClarification(food: string): string | undefined {
+  const value = food.toLocaleLowerCase();
+  const meat = /\b(chicken|beef|pork|turkey|lamb|salmon|tuna|fish|shrimp|prawn)\b/.test(value);
+  const raw = /\b(raw|uncooked)\b/.test(value);
+  const preparationMethod = /\b(boiled|poached|roasted|baked|grilled|fried|pan[\s-]fried|air[\s-]fried|steamed|smoked|braised|broiled)\b/.test(value);
+  if (/\bchicken\b/.test(value) && !/\b(breast|thigh|wing|drumstick|leg|tender|whole|ground|minced)\b/.test(value)) {
+    return "For an estimate, specify the chicken cut (such as breast or thigh), whether it is raw or cooked, and the cooking method. I won’t guess the cut.";
+  }
+  if (meat && !raw && !preparationMethod) {
+    return "For an estimate, specify whether this is raw or cooked and how it was prepared. Nutrition varies by cut and cooking method.";
+  }
+  if (meat && /\bcooked\b/.test(value) && !preparationMethod) {
+    return "For an estimate, specify the cooking method, such as grilled, roasted, boiled or pan-fried.";
+  }
+  if (/\b(rice|pasta|noodles?|oats?|quinoa|beans?|lentils?|potatoes?)\b/.test(value) &&
+      !/\b(raw|dry|dried|uncooked|cooked|boiled|steamed|baked|roasted|fried)\b/.test(value)) {
+    return "Specify whether the weight is dry/raw or cooked. Those forms have very different nutrition per 100 g.";
+  }
+  return undefined;
+}
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const macroText = (n: number) => Number.isInteger(n) ? String(n) : n.toFixed(1);
 const nutrientFactor = (amount: number, grams: number) => amount * grams / 100;
@@ -92,7 +112,10 @@ function Empty({ title, text }: { title: string; text: string }) {
 }
 function ErrorNote({ children }: { children: React.ReactNode }) { return <p className="hd-error" role="alert">{children}</p>; }
 function macros(food: Pick<MacroFood, "calories" | "protein" | "carbs" | "fat">, grams: number) {
-  return { calories: Math.round(nutrientFactor(food.calories, grams)), protein: round1(nutrientFactor(food.protein, grams)), carbs: round1(nutrientFactor(food.carbs, grams)), fat: round1(nutrientFactor(food.fat, grams)) };
+  return { calories: round1(nutrientFactor(food.calories, grams)), protein: round1(nutrientFactor(food.protein, grams)), carbs: round1(nutrientFactor(food.carbs, grams)), fat: round1(nutrientFactor(food.fat, grams)) };
+}
+function servingValuesPlausible(values: Pick<LabelDraft, "calories" | "protein" | "carbs" | "fat">, grams: number) {
+  return values.calories <= grams * 10 && values.protein + values.carbs + values.fat <= grams * 1.1;
 }
 function targetStatus(current: number, target: number, mode: "limit" | "goal") {
   if (target <= 0) return { state: "unset", label: "Target not set" };
@@ -189,6 +212,7 @@ export function HealthDashboard({ data, update }: Props) {
   const [selectedDay, setSelectedDay] = useState(todayKey());
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MacroFood[]>([]);
+  const [estimateAcknowledged, setEstimateAcknowledged] = useState(false);
   const [searching, setSearching] = useState(false);
   const [foodError, setFoodError] = useState("");
   const [grams, setGrams] = useState("100");
@@ -196,6 +220,7 @@ export function HealthDashboard({ data, update }: Props) {
   const [manual, setManual] = useState(false);
   const [manualValues, setManualValues] = useState(["", "", "", ""]);
   const [labelDraft, setLabelDraft] = useState<LabelDraft | null>(null);
+  const [labelConfirmed, setLabelConfirmed] = useState(false);
   const nutritionEstimate = useEstimateLifeNutrition();
   const [labelPhoto, setLabelPhoto] = useState<Blob | null>(null);
   const [labelPreview, setLabelPreview] = useState("");
@@ -281,7 +306,7 @@ export function HealthDashboard({ data, update }: Props) {
     if (parsed.grams) setGrams(String(parsed.grams));
     if (parsed.food.length < 2) { setFoodError("Enter a food name, for example “white rice 100 grams”."); return; }
     setQuery(parsed.food);
-    setSearching(true); setFoodError(""); setResults([]);
+    setSearching(true); setFoodError(""); setResults([]); setEstimateAcknowledged(false);
     try {
       let found: MacroFood[] = [];
       let databaseUnavailable = false;
@@ -295,11 +320,9 @@ export function HealthDashboard({ data, update }: Props) {
         setResults(found);
         return;
       }
-      const estimate = await nutritionEstimate.mutateAsync({ data: { food: parsed.food } });
-      setResults([estimate]);
       setFoodError(databaseUnavailable
-        ? "The public food databases were unavailable. Claude’s clearly labeled estimate is not verified against a package label."
-        : "No public database match was found. Claude’s clearly labeled estimate is not verified against a package label.");
+        ? "The food databases are unavailable, so no nutrition was logged. Try again, scan the package, or enter verified label values."
+        : "No database match found. Refine the food name and preparation, scan the package, or request a clearly marked AI estimate separately.");
     } catch (error) {
       if (typeof error === "object" && error !== null && "status" in error && (error as { status?: unknown }).status === 401) return;
       setFoodError(error instanceof Error
@@ -312,7 +335,10 @@ export function HealthDashboard({ data, update }: Props) {
     const parsed = parseFoodPhrase(query.trim());
     if (parsed.grams) setGrams(String(parsed.grams));
     if (parsed.food.length < 2) { setFoodError("Enter a food name before asking Claude for an estimate."); return; }
+    const clarification = foodEstimateClarification(parsed.food);
+    if (clarification) { setFoodError(clarification); return; }
     setQuery(parsed.food); setSearching(true); setFoodError("");
+    setResults([]); setEstimateAcknowledged(false);
     try {
       const estimate = await nutritionEstimate.mutateAsync({ data: { food: parsed.food } });
       setResults([estimate]);
@@ -324,6 +350,10 @@ export function HealthDashboard({ data, update }: Props) {
   }
   function createMeal(food: MacroFood | SavedFood, amount = Number(grams), time = mealTime, name = food.name, photoKey?: string) {
     if (!Number.isFinite(amount) || amount <= 0) { setFoodError("Enter a serving amount greater than zero grams."); return; }
+    if ("calories" in food && food.source === "Claude estimate" && !estimateAcknowledged) {
+      setFoodError("Confirm that this is an unverified AI estimate before logging it.");
+      return;
+    }
     const macroFood = "calories" in food ? food : {
       calories: food.caloriesPer100, protein: food.proteinPer100, carbs: food.carbsPer100, fat: food.fatPer100,
     };
@@ -334,15 +364,18 @@ export function HealthDashboard({ data, update }: Props) {
   }
   function logManual() {
     const values = manualValues.map(Number), amount = Number(grams);
-    if (!query.trim() || !Number.isFinite(amount) || amount <= 0 || values.some(v => !Number.isFinite(v) || v < 0)) {
-      setFoodError("Add a food name, valid gram amount and non-negative macro values."); return;
+    if (!query.trim() || !Number.isFinite(amount) || amount <= 0 || manualValues.some(value => !value.trim()) || values.some(v => !Number.isFinite(v) || v < 0)) {
+      setFoodError("Enter a food name, valid gram amount, and all four non-negative label values."); return;
+    }
+    if (!servingValuesPlausible({ calories: values[0], protein: values[1], carbs: values[2], fat: values[3] }, amount)) {
+      setFoodError("Those values exceed plausible limits for this portion. Recheck the serving size and units."); return;
     }
     update("meals", [{ id: makeId(), name: query.trim(), grams: amount, calories: values[0], protein: values[1], carbs: values[2], fat: values[3], time: mealTime || nowTime(), date: todayKey(), source: "Food label / manual" }, ...data.meals]);
     setFoodError(""); setQuery(""); setManual(false);
   }
   async function transcribeLabel(file?: File) {
     if (!file) return;
-    setLabelError(""); setLabelDraft(null);
+    setLabelError(""); setLabelDraft(null); setLabelConfirmed(false);
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setLabelError("Choose a JPEG, PNG or WebP package photo."); return; }
     try {
       const image = await compressImage(file);
@@ -357,8 +390,12 @@ export function HealthDashboard({ data, update }: Props) {
   }
   async function saveLabelFood(event: FormEvent) {
     event.preventDefault();
-    if (!labelDraft || !labelDraft.name.trim() || labelDraft.servingGrams <= 0 || [labelDraft.calories, labelDraft.protein, labelDraft.carbs, labelDraft.fat].some(n => !Number.isFinite(n) || n < 0)) {
-      setLabelError("Check the product name, serving size and nutrition values."); return;
+    if (!labelDraft || !labelDraft.name.trim() || labelDraft.servingGrams <= 0 || [labelDraft.calories, labelDraft.protein, labelDraft.carbs, labelDraft.fat].some(n => !Number.isFinite(n) || n < 0) || !labelConfirmed) {
+      setLabelError("Check the product name, serving size and nutrition values against the packet, then confirm before saving."); return;
+    }
+    if (!servingValuesPlausible(labelDraft, labelDraft.servingGrams)) {
+      setLabelError("The transcribed macros exceed the serving weight or the calories look implausible. Correct the values before saving.");
+      return;
     }
     let photoKey: string | undefined;
     if (labelPhoto) {
@@ -375,7 +412,7 @@ export function HealthDashboard({ data, update }: Props) {
     };
     update("savedFoods", [saved, ...data.savedFoods]);
     if (photoKey && labelPhoto) setFoodPhotoUrls(prev => ({ ...prev, [photoKey!]: URL.createObjectURL(labelPhoto) }));
-    setLabelDraft(null); setLabelPhoto(null); setLabelPreview(""); setLabelError("");
+    setLabelDraft(null); setLabelPhoto(null); setLabelPreview(""); setLabelError(""); setLabelConfirmed(false);
   }
   function setDayStatus(day: string, field: "gym" | "diet", value: DayCheckIn["gym"] | DayCheckIn["diet"]) {
     updateCheck(data, update, day, field, value);
@@ -589,19 +626,23 @@ export function HealthDashboard({ data, update }: Props) {
               </div>;
             })}
           </div>
-          <p className="hd-honesty-note">{todayMeals.length ? "Status compares logged food with your saved targets; meals you have not logged are not counted." : "No meals logged today, so I can’t assess your intake yet."} Search results are database estimates; check packet labels when precision matters.</p>
+          <p className="hd-honesty-note">{todayMeals.length ? "Status compares logged food with your saved targets; meals you have not logged are not counted." : "No meals logged today, so I can’t assess your intake yet."} Database records can differ from your brand, cut or preparation. Use the packet label for branded food and confirm the exact form before logging.</p>
         </Panel>
         <Panel>
           <PanelHeading icon={<Plus size={16}/>} label="FOOD DATABASE" title="Log a meal"/>
-          <p className="hd-copy">Search USDA FoodData Central and Open Food Facts first. If there is no match, Claude can estimate a common food. Values are per 100 g and scaled to your portion; AI estimates are not label-verified.</p>
+          <p className="hd-copy">Search USDA FoodData Central and Open Food Facts. Choose the exact food form shown. No database match means no meal is logged; Claude estimates are optional and never label-verified. For best accuracy, scan a package label.</p>
           <form onSubmit={lookupFood}>
-            <Field label="Food or product" value={query} onChange={setQuery} placeholder="Try “white rice 100 grams”" id="hd-food-search"/>
-            <div className="hd-field-row"><Field label="Serving (g)" type="number" min="1" step="1" value={grams} onChange={setGrams} id="hd-food-grams"/><Field label="Meal time" type="time" value={mealTime} onChange={setMealTime} id="hd-food-time"/></div>
+            <Field label="Food or product" value={query} onChange={value => { setQuery(value); setResults([]); setEstimateAcknowledged(false); setManualValues(["", "", "", ""]); }} placeholder="Try “skinless chicken thigh, raw”" id="hd-food-search"/>
+            <div className="hd-field-row"><Field label="Serving (g)" type="number" min="1" step="1" value={grams} onChange={value => { setGrams(value); setResults([]); setEstimateAcknowledged(false); setManualValues(["", "", "", ""]); }} id="hd-food-grams"/><Field label="Meal time" type="time" value={mealTime} onChange={setMealTime} id="hd-food-time"/></div>
             <button className="hd-primary" type="submit" disabled={searching || query.trim().length < 2}>{searching ? <LoaderCircle size={16} className="hd-spin"/> : <Search size={16}/>}Search nutrition</button>
           </form>
           <button type="button" className="hd-text-button" disabled={searching || query.trim().length < 2} onClick={() => void estimateFoodWithClaude()}><Sparkles size={14}/>Ask Claude for an estimate</button>
           {foodError && <ErrorNote>{foodError}</ErrorNote>}
-          {results.map(food => <div className="hd-result" key={food.id}><div><b>{food.name}</b><small>{food.source} · 100 g: {Math.round(food.calories)} kcal · P {food.protein} · C {food.carbs} · F {food.fat} g</small><small>At {grams || "0"} g: {macros(food, Number(grams) || 0).calories} kcal · P {macros(food, Number(grams) || 0).protein} · C {macros(food, Number(grams) || 0).carbs} · F {macros(food, Number(grams) || 0).fat} g</small></div><button className="hd-small-button" type="button" onClick={() => createMeal(food)}>Log</button></div>)}
+          {results.map(food => {
+            const isEstimate = food.source === "Claude estimate";
+            const scaled = macros(food, Number(grams) || 0);
+            return <div className="hd-result" key={food.id}><div><b>{food.name}</b><small>{food.source} · per 100 g: {macroText(food.calories)} kcal · P {macroText(food.protein)} · C {macroText(food.carbs)} · F {macroText(food.fat)} g</small><small>At {grams || "0"} g: {macroText(scaled.calories)} kcal · P {macroText(scaled.protein)} · C {macroText(scaled.carbs)} · F {macroText(scaled.fat)} g</small>{isEstimate && <><p className="hd-estimate-warning">AI estimate only. It can be wrong and is not a verified nutrition value.</p><label className="hd-estimate-confirm"><input type="checkbox" checked={estimateAcknowledged} onChange={event => setEstimateAcknowledged(event.target.checked)}/>I understand this is approximate, not exact.</label></>}</div><button className="hd-small-button" type="button" disabled={isEstimate && !estimateAcknowledged} onClick={() => createMeal(food)}>{isEstimate ? "Log estimate" : "Log match"}</button></div>;
+          })}
           <button type="button" className="hd-text-button" onClick={() => { setManual(value => !value); setFoodError(""); }}>{manual ? "Close manual entry" : "Enter values from a food label"}</button>
           {manual && <div className="hd-manual"><span className="hd-kicker">FOR THIS PORTION · {grams || 0} G</span><div className="hd-field-row">{["Calories (kcal)", "Protein (g)", "Carbs (g)", "Fat (g)"].map((label, index) => <Field key={label} label={label} type="number" min="0" step=".1" value={manualValues[index]} onChange={value => setManualValues(old => old.map((entry, i) => i === index ? value : entry))}/>)}</div><button className="hd-primary" type="button" onClick={logManual}><Check size={15}/>Save meal</button></div>}
         </Panel>
@@ -611,7 +652,7 @@ export function HealthDashboard({ data, update }: Props) {
           <label className="hd-upload"><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event: ChangeEvent<HTMLInputElement>) => { void transcribeLabel(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }}/>{readLabel.isPending ? <LoaderCircle className="hd-spin" size={19}/> : <Camera size={19}/>}<span><b>{readLabel.isPending ? "Reading package…" : "Take or choose a photo"}</b><small>JPEG, PNG or WebP · stored on this device</small></span></label>
           {labelPreview && <img className="hd-label-preview" src={labelPreview} alt="Package label being reviewed"/>}
           {labelError && <ErrorNote>{labelError}</ErrorNote>}
-          {labelDraft && <form className="hd-label-review" onSubmit={saveLabelFood}><div className="hd-review-title"><strong>Check the label values</strong><span>Transcribed values may need correction.</span></div>{labelDraft.labelNotes && <p className="hd-copy hd-label-notes">{labelDraft.labelNotes}</p>}<Field label="Product name" value={labelDraft.name} onChange={name => setLabelDraft({ ...labelDraft, name })}/><Field label="Serving size (g)" type="number" min=".1" step=".1" value={String(labelDraft.servingGrams)} onChange={value => setLabelDraft({ ...labelDraft, servingGrams: Number(value) })}/><div className="hd-field-row">{(["calories", "protein", "carbs", "fat"] as const).map(key => <Field key={key} label={`${key === "calories" ? "Calories (kcal)" : `${key[0].toUpperCase()}${key.slice(1)} (g)`}`} type="number" min="0" step=".1" value={String(labelDraft[key])} onChange={value => setLabelDraft({ ...labelDraft, [key]: Number(value) })}/>)}</div><p className="hd-copy">Values above are for {labelDraft.servingGrams} g. Saved-food macros are converted to per 100 g. Check the packet before saving.</p><button type="submit" className="hd-primary"><Check size={15}/>Save product and photo</button></form>}
+          {labelDraft && <form className="hd-label-review" onSubmit={saveLabelFood}><div className="hd-review-title"><strong>Check the label values</strong><span>AI transcription can misread serving sizes or numbers. Compare each value with the packet.</span></div>{labelDraft.labelNotes && <p className="hd-copy hd-label-notes">{labelDraft.labelNotes}</p>}<Field label="Product name" value={labelDraft.name} onChange={name => { setLabelDraft({ ...labelDraft, name }); setLabelConfirmed(false); }}/><Field label="Serving size (g)" type="number" min=".1" step=".1" value={String(labelDraft.servingGrams)} onChange={value => { setLabelDraft({ ...labelDraft, servingGrams: Number(value) }); setLabelConfirmed(false); }}/><div className="hd-field-row">{(["calories", "protein", "carbs", "fat"] as const).map(key => <Field key={key} label={`${key === "calories" ? "Calories (kcal)" : `${key[0].toUpperCase()}${key.slice(1)} (g)`}`} type="number" min="0" step=".1" value={String(labelDraft[key])} onChange={value => { setLabelDraft({ ...labelDraft, [key]: Number(value) }); setLabelConfirmed(false); }}/>)}</div><p className="hd-copy">Values above are for {labelDraft.servingGrams} g. Saved-food macros are converted to per 100 g.</p><label className="hd-label-confirm"><input type="checkbox" checked={labelConfirmed} onChange={event => setLabelConfirmed(event.target.checked)}/>I checked the serving size and every value against the package.</label><button type="submit" className="hd-primary" disabled={!labelConfirmed}><Check size={15}/>Save confirmed product</button></form>}
         </Panel>
       </div>
       <aside className="hd-food-side">
