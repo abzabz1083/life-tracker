@@ -1,0 +1,121 @@
+.pwa-offline-banner {
+  position: fixed;
+  z-index: 60;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(540px, calc(100vw - 28px));
+  padding: 12px 15px;
+  border: 1px solid #d9dfd7;
+  border-radius: 13px;
+  background: #fffdf7;
+  color: #34434a;
+  box-shadow: 0 12px 34px rgba(27, 39, 34, 0.14);
+  font-size: 12px;
+  line-height: 1.45;
+  transform: translateX(-50%);
+}
+
+.pwa-offline-banner svg {
+  flex: 0 0 auto;
+  color: #6e7b73;
+}
+
+.pwa-offline-banner strong {
+  margin-right: 3px;
+}
+
+.pwa-install-card {
+  position: fixed;
+  z-index: 55;
+  right: 22px;
+  bottom: 22px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: min(390px, calc(100vw - 32px));
+  padding: 15px 42px 15px 15px;
+  border: 1px solid #dbe0d8;
+  border-radius: 16px;
+  background: #fffdf8;
+  box-shadow: 0 16px 44px rgba(27, 39, 34, 0.16);
+  color: #303c48;
+}
+
+.pwa-install-icon {
+  display: block;
+  border-radius: 11px;
+}
+
+.pwa-install-copy {
+  min-width: 0;
+}
+
+.pwa-install-copy strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pwa-install-copy p {
+  margin: 4px 0 0;
+  color: #74807b;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.pwa-install-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 9px;
+  background: #426456;
+  color: #fffdf8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pwa-install-button:hover {
+  background: #344f43;
+}
+
+.pwa-dismiss-button {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #7c8580;
+}
+
+.pwa-dismiss-button:hover {
+  background: #f0f1eb;
+  color: #33433a;
+}
+
+.pwa-install-button:focus-visible,
+.pwa-dismiss-button:focus-visible {
+  outline: 2px solid #426456;
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .pwa-install-card {
+    right: 12px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    left: 12px;
+    width: auto;
+  }
+}
