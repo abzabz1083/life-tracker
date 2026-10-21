@@ -14,3 +14,9 @@ Treat Git source-control attachment and GitHub API connector attachment as separ
 **Why:** The source-control attachment reported success while Git rejected its credentials, the source-control connection was unavailable through the API proxy, and attaching a separate GitHub API connection was blocked by an existing assignment.
 
 **How to apply:** Verify transport with a read-only Git request and verify API access separately. Do not repeatedly reopen connection prompts or push to the old owner when the requested account cannot be verified; report the connection conflict and leave repositories unchanged.
+
+For shell-based pushes, an interactive GitHub CLI browser login followed by `gh auth setup-git` can resolve authentication even when the Replit connection UI already says connected.
+
+**Why:** Repeated integration reconnections did not authenticate shell Git; completing the CLI browser authorization and configuring its credential helper enabled the normal history-preserving push.
+
+**How to apply:** Verify the authenticated username with `gh api user` before configuring Git. Have the user complete browser authorization in their Shell, never share tokens in chat. A push can succeed remotely but exit with a local tracking-reference permission error; compare the remote branch SHA before retrying. Use the documented Git permission override only for authorized local Git writes.
